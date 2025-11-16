@@ -1,0 +1,9 @@
+[package]
+name = "reimui-raylib-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+reimui = { path = "../../" }
+raylib = "5.5.1"
