@@ -115,6 +115,10 @@ impl<'s, 'f> UIContext<'f> {
         });
     }
 
+    pub fn take_commands(&mut self) -> Vec<DrawCommand> {
+        self.command_buffer.drain(..).collect()
+    }
+
     pub fn draw_text_layout(&mut self, layout: &mut Layout, label: String) {
         let text_size = self.font_info.compute_text_size(&label);
         let mut top_left = layout.top_left;
