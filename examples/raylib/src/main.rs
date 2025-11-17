@@ -1,11 +1,11 @@
 use std::ffi::CString;
 
-use raylib::prelude::*;
+use raylib::{ prelude::*};
 
 use reimui::{
     ButtonState, DrawCommand, FontInformation, Layout, LayoutDirection, UIContext, Vec2,
 };
-
+ 
 struct RaylibFontInfo {
     font_size: i32,
 }
@@ -28,6 +28,8 @@ fn main() {
         .build();
 
     let font_info = RaylibFontInfo { font_size: 22 };
+    let mut ui_state = reimui::UIState::new();
+    let mut click_count = 0;
 
     while !rl.window_should_close() {
         let mouse = rl.get_mouse_position();
@@ -37,7 +39,8 @@ fn main() {
             ButtonState::Up
         };
 
-        let mut ctx = UIContext::new(
+        let mut ui_ctx = UIContext::new(
+            ui_state,
             &font_info,
             Vec2 {
                 x: mouse.x.max(0.0) as u32,
@@ -48,42 +51,47 @@ fn main() {
 
         let mut layout = Layout::new(
             LayoutDirection::Vertical,
-            10,
+            25,
             Vec2 { x: 28, y: 28 },
             Vec2 { x: 620, y: 360 },
         );
-        ctx.draw_text_layout(&mut layout, "reimui + raylib".to_string());
-        ctx.draw_text_layout(
+        ui_ctx.draw_text_layout(&mut layout, "reimui + raylib".into());
+        ui_ctx.draw_text_layout(
             &mut layout,
-            "Immediate mode UI rendering to raylib".to_string(),
+            "Immediate mode UI rendering to raylib".into(),
         );
-        let clicked = ctx.draw_button(&mut layout, Vec2 { x: 18, y: 12 }, "Click me".to_string());
+        let clicked = ui_ctx.draw_button_layout(&mut layout, Vec2 { x: 18, y: 12 }, format!("Click me {}", click_count).into());
+
+        if clicked {
+            click_count += 1;
+        }
 
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::RAYWHITE);
 
-        for command in ctx.take_commands() {
+        let ui_result = ui_ctx.end();
+        for command in ui_result.commands {
             match command {
-                DrawCommand::DrawText { content, x, y, .. } => {
+                DrawCommand::DrawText { content, top_left, flags } => {
                     d.draw_text(
                         &content,
-                        x as i32,
-                        y as i32,
+                        top_left.x as i32,
+                        top_left.y as i32,
                         font_info.font_size,
-                        Color::BLACK,
+                        if flags & reimui::flags::ACTIVE != 0 {
+                            Color::DARKRED
+                        } else if flags & reimui::flags::HOVER != 0 {
+                            Color::RED
+                        } else {
+                            Color::BLACK
+                        }
                     );
                 }
             }
         }
 
-        if clicked {
-            d.draw_text(
-                "Button pressed",
-                28,
-                (layout.top_left.y + 4) as i32,
-                font_info.font_size,
-                Color::DARKGREEN,
-            );
-        }
+
+        // make sure to reassign the update UI state for the next pass
+        ui_state = ui_result.new_state;
     }
 }
