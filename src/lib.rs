@@ -184,11 +184,7 @@ impl<'f> UIContext<'f> {
     }
 
     fn check_set_hover(&mut self, rect: Rect) -> bool {
-        let is_hover = self.mouse_position.x >= rect.top_left.x
-            && self.mouse_position.x <= rect.top_left.x + rect.size.x
-            && self.mouse_position.y >= rect.top_left.y
-            && self.mouse_position.y <= rect.top_left.y + rect.size.y;
-
+        let is_hover = rect.contains(self.mouse_position);
         if is_hover {
             self.hover_rect = Some(rect);
         }
