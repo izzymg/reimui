@@ -6,7 +6,7 @@ fn main() {
         .title("reimui + raylib")
         .build();
 
-    let mut simple_ui = simple::SimpleUI::new();
+    let mut simple_ui = simple::SimpleUI::new(&rl);
 
     while !rl.window_should_close() {
         simple_ui.draw(&mut rl, &thread);

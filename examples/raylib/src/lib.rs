@@ -1,20 +1,28 @@
-// Some common reimui -> raylib bindings 
-
-use std::ffi::CString;
-
+// Some common reimui -> raylib bindings
 use raylib::prelude::*;
 
 pub struct RaylibFontInfo {
     pub font_size: i32,
+    font: WeakFont,
+}
+
+impl RaylibFontInfo {
+    pub fn new(rl: &RaylibHandle, font_size: i32) -> Self {
+        Self {
+            font_size,
+            font: rl.get_font_default(),
+        }
+    }
 }
 
 impl reimui::FontInformation for RaylibFontInfo {
     fn compute_text_size(&self, text: &str) -> reimui::Vec2 {
-        let text = CString::new(text).unwrap_or_default();
-        let width = unsafe { raylib::ffi::MeasureText(text.as_ptr(), self.font_size) } as u32;
+        let text_size = self
+            .font
+            .measure_text(text, self.font_size as f32, 1.0);
         reimui::Vec2 {
-            x: width,
-            y: self.font_size as u32,
+            x: text_size.x as u32,
+            y: text_size.y as u32,
         }
     }
 }

@@ -16,11 +16,11 @@ pub struct SimpleUI {
 
 impl SimpleUI {
 
-    pub fn new() -> Self {
+    pub fn new(rl: &RaylibHandle) -> Self {
         Self {
             clicked: 0,
             ui_state: reimui::UIState::new(),
-            font_info: RaylibFontInfo { font_size: 22 },
+            font_info: RaylibFontInfo::new(rl, 22),
         }
     }
 
