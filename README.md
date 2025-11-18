@@ -10,9 +10,7 @@ A render agnostic, immediate-mode GUI lib written in Rust.
 
 
 ```rs
-use reimui::{
-    ButtonState, FontInformation, Layout, LayoutDirection, UIContext, UIState, Vec2,
-};
+use reimui::prelude::*;
 
 /// Bind reimui draw primitives to your render backend
 fn reimui_ui_to_renderer(result: &reimui::UIResult) {
