@@ -3,6 +3,8 @@ use raylib::prelude::*;
 use reimui::{ButtonState, Layout, LayoutDirection, UIContext, Vec2};
 use reimui_raylib_example::{RaylibFontInfo, apply_reimui_to_raylib};
 
+const BUTTON_PADDING: Vec2 = Vec2 { x: 16, y: 12 };
+
 /// A simple reimui layout with a few pieces of text and a button with a click counter.
 pub struct SimpleUI {
     clicked: u32,
@@ -15,7 +17,7 @@ impl SimpleUI {
         Self {
             clicked: 0,
             ui_state: reimui::UIState::new(),
-            font_info: RaylibFontInfo::new(rl, 22),
+            font_info: RaylibFontInfo::new(rl),
         }
     }
 
@@ -49,7 +51,7 @@ impl SimpleUI {
         ui_ctx.draw_text_layout(&mut layout, "Immediate mode UI rendering to raylib".into());
         let clicked = ui_ctx.draw_button_layout(
             &mut layout,
-            Vec2 { x: 18, y: 12 },
+            BUTTON_PADDING,
             format!("Click me {}", self.clicked),
         );
 

@@ -1,3 +1,5 @@
+// Stupidly simple render-agnostic immediate mode UI lib
+
 use std::collections::VecDeque;
 
 use crate::flags::Flags;
@@ -9,6 +11,15 @@ pub mod flags {
     pub const HOVER: Flags          = 1 << 0;
     pub const DISABLED: Flags       = 1 << 1;
     pub const ACTIVE: Flags         = 1 << 2;
+}
+
+/// f32 color
+#[derive(Debug, Clone, Copy)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,6 +45,20 @@ impl Vec2 {
             y: a.y + b.y,
         }
     }
+
+    pub fn sub(a: Vec2, b: Vec2) -> Self {
+        Vec2 {
+            x: a.x - b.x,
+            y: a.y - b.y,
+        }
+    }
+
+    pub fn div(a: Vec2, b: u32) -> Self {
+        Vec2 {
+            x: a.x / b,
+            y: a.y / b,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -51,11 +76,18 @@ impl Rect {
     }
 }
 
+/// The output of a reimui ui run
+#[derive(Debug, Clone)]
 pub enum DrawCommand {
     DrawText {
         content: String,
         top_left: Vec2,
         flags: Flags,
+    },
+    DrawRect {
+        top_left: Vec2,
+        size: Vec2,
+        bg_color: Color,
     },
 }
 
@@ -146,6 +178,15 @@ pub struct UIContext<'f> {
 }
 
 impl<'f> UIContext<'f> {
+
+    fn draw_rect_raw(&mut self, top_left: Vec2, size: Vec2, bg_color: Color) {
+        self.command_buffer.push_back(DrawCommand::DrawRect {
+            top_left,
+            size,
+            bg_color,
+        });
+    }
+
     fn draw_button_raw(
         &mut self,
         top_left: Vec2,
@@ -170,7 +211,17 @@ impl<'f> UIContext<'f> {
             flags |= flags::ACTIVE;
         }
 
-        self.draw_text_with_flags(label, top_left, flags);
+        let half_padding = Vec2::div(
+            Vec2::sub(rect.size, text_size),
+            2,
+        );
+        let centered_text_pos = Vec2::add(
+            rect.top_left,
+            half_padding,
+        );
+
+        self.draw_rect_raw(rect.top_left, rect.size, Color { r: 0.7, g: 0.7, b: 0.7, a: 1.0 });
+        self.draw_text_with_flags(label, centered_text_pos, flags);
 
         hovered && self.clicked_rect(rect)
     }
@@ -230,6 +281,11 @@ impl<'f> UIContext<'f> {
         let text_size = self.font_info.compute_text_size(&label);
         self.draw_text(label, layout.top_left);
         layout.recompute(text_size);
+    }
+
+    pub fn draw_button(&mut self, top_left: Vec2, padding: Vec2, label: String) -> bool {
+        let text_size = self.font_info.compute_text_size(&label);
+        self.draw_button_raw(top_left, text_size, padding, label)
     }
 
     pub fn draw_button_layout(

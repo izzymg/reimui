@@ -7,10 +7,12 @@ pub struct RaylibFontInfo {
 }
 
 impl RaylibFontInfo {
-    pub fn new(rl: &RaylibHandle, font_size: i32) -> Self {
+    pub fn new(rl: &RaylibHandle) -> Self {
+        let font = rl.get_font_default();
+        let font_size = font.baseSize;
         Self {
             font_size,
-            font: rl.get_font_default(),
+            font,
         }
     }
 }
@@ -50,6 +52,20 @@ pub fn apply_reimui_to_raylib(
                     } else {
                         Color::BLACK
                     },
+                );
+            }
+            reimui::DrawCommand::DrawRect { top_left, size, bg_color } => {
+                d.draw_rectangle(
+                    top_left.x as i32,
+                    top_left.y as i32,
+                    size.x as i32,
+                    size.y as i32,
+                    Color::new(
+                        (bg_color.r * 255.0) as u8,
+                        (bg_color.g * 255.0) as u8,
+                        (bg_color.b * 255.0) as u8,
+                        (bg_color.a * 255.0) as u8,
+                    ),
                 );
             }
         }
