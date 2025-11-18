@@ -115,6 +115,12 @@ pub struct UIState {
     active_rect: Option<Rect>,
 }
 
+impl Default for UIState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UIState {
     pub fn new() -> Self {
         Self { active_rect: None }
@@ -164,11 +170,7 @@ impl<'f> UIContext<'f> {
             flags |= flags::ACTIVE;
         }
 
-        self.draw_text_with_flags(
-            label,
-            top_left,
-            flags,
-        );
+        self.draw_text_with_flags(label, top_left, flags);
 
         hovered && self.clicked_rect(rect)
     }
@@ -220,7 +222,7 @@ impl<'f> UIContext<'f> {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
             top_left,
-            flags: flags,
+            flags,
         });
     }
 

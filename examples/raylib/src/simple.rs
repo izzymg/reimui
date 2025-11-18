@@ -1,6 +1,6 @@
 use raylib::prelude::*;
 
-use reimui::{ButtonState, DrawCommand, FontInformation, Layout, LayoutDirection, UIContext, Vec2};
+use reimui::{ButtonState, Layout, LayoutDirection, UIContext, Vec2};
 use reimui_raylib_example::{RaylibFontInfo, apply_reimui_to_raylib};
 
 /// A simple reimui layout with a few pieces of text and a button with a click counter.
@@ -50,7 +50,7 @@ impl SimpleUI {
         let clicked = ui_ctx.draw_button_layout(
             &mut layout,
             Vec2 { x: 18, y: 12 },
-            format!("Click me {}", self.clicked).into(),
+            format!("Click me {}", self.clicked),
         );
 
         if clicked {
@@ -58,7 +58,7 @@ impl SimpleUI {
         }
 
         // now actually draw to raylib
-        let mut d = rl.begin_drawing(&thread);
+        let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
 
         let ui_result = ui_ctx.end();
