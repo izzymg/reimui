@@ -83,11 +83,13 @@ pub enum DrawCommand {
         content: String,
         top_left: Vec2,
         flags: Flags,
+        role: UIDrawRole,
     },
     DrawRect {
         top_left: Vec2,
         size: Vec2,
-        bg_color: Color,
+        flags: Flags,
+        role: UIDrawRole,
     },
 }
 
@@ -141,6 +143,14 @@ pub trait FontInformation {
     fn compute_text_size(&self, text: &str) -> Vec2;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Hint about what a draw command is for
+pub enum UIDrawRole {
+    Text,
+    ButtonText,
+    ButtonBackground,
+}
+
 #[derive(Copy, Clone)]
 /// Persistent UI state object
 pub struct UIState {
@@ -179,15 +189,26 @@ pub struct UIContext<'f> {
 
 impl<'f> UIContext<'f> {
 
-    fn draw_rect_raw(&mut self, top_left: Vec2, size: Vec2, bg_color: Color) {
+    pub fn draw_rect_raw(&mut self, top_left: Vec2, size: Vec2, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawRect {
             top_left,
             size,
-            bg_color,
+            flags,
+            role,
         });
     }
 
-    fn draw_button_raw(
+    pub fn draw_text_raw(&mut self, label: String, top_left: Vec2, flags: Flags, role: UIDrawRole) {
+        self.command_buffer.push_back(DrawCommand::DrawText {
+            content: label,
+            top_left,
+            flags,
+            role,
+        });
+    }
+
+
+    pub fn draw_button_raw(
         &mut self,
         top_left: Vec2,
         text_size: Vec2,
@@ -220,8 +241,8 @@ impl<'f> UIContext<'f> {
             half_padding,
         );
 
-        self.draw_rect_raw(rect.top_left, rect.size, Color { r: 0.7, g: 0.7, b: 0.7, a: 1.0 });
-        self.draw_text_with_flags(label, centered_text_pos, flags);
+        self.draw_rect_raw(rect.top_left, rect.size, flags, UIDrawRole::ButtonBackground);
+        self.draw_text_raw(label, centered_text_pos, flags, UIDrawRole::ButtonText);
 
         hovered && self.clicked_rect(rect)
     }
@@ -266,16 +287,10 @@ impl<'f> UIContext<'f> {
             content: label,
             top_left,
             flags: 0,
+            role: UIDrawRole::Text,
         });
     }
 
-    pub fn draw_text_with_flags(&mut self, label: String, top_left: Vec2, flags: Flags) {
-        self.command_buffer.push_back(DrawCommand::DrawText {
-            content: label,
-            top_left,
-            flags,
-        });
-    }
 
     pub fn draw_text_layout(&mut self, layout: &mut Layout, label: String) {
         let text_size = self.font_info.compute_text_size(&label);
@@ -378,5 +393,75 @@ mod test {
         );
 
         assert_eq!(ctx.command_buffer.len(), 9);
+    }
+
+    #[test]
+    fn button_click() {
+        let font_info = mock_font_info();
+        let ui_state = UIState::new();
+
+        // first frame: mouse down over button
+        let mut ctx = super::UIContext::new(
+            ui_state,
+            &font_info,
+            Vec2 { x: 10, y: 10 },
+            ButtonState::Down,
+        );
+        let clicked = ctx.draw_button(
+            Vec2 { x: 0, y: 0 },
+            Vec2 { x: 8, y: 4 },
+            "Click me".into(),
+        );
+        assert!(!clicked, "button should not register click on mouse down");
+        let result = ctx.end();
+
+        // second frame: mouse up over button
+        let mut ctx = super::UIContext::new(
+            result.new_state,
+            &font_info,
+            Vec2 { x: 10, y: 10 },
+            ButtonState::Up,
+        );
+        let clicked = ctx.draw_button(
+            Vec2 { x: 0, y: 0 },
+            Vec2 { x: 8, y: 4 },
+            "Click me".into(),
+        );
+        assert!(clicked, "button should register click on mouse up");
+    }
+
+    #[test]
+    fn button_click_outside() {
+        let font_info = mock_font_info();
+        let ui_state = UIState::new();
+
+        // first frame: mouse down outside button
+        let mut ctx = super::UIContext::new(
+            ui_state,
+            &font_info,
+            Vec2 { x: 100, y: 100 },
+            ButtonState::Down,
+        );
+        let clicked = ctx.draw_button(
+            Vec2 { x: 0, y: 0 },
+            Vec2 { x: 8, y: 4 },
+            "Click me".into(),
+        );
+        assert!(!clicked, "button should not register click on mouse down outside");
+        let result = ctx.end();
+
+        // second frame: mouse up outside button
+        let mut ctx = super::UIContext::new(
+            result.new_state,
+            &font_info,
+            Vec2 { x: 100, y: 100 },
+            ButtonState::Up,
+        );
+        let clicked = ctx.draw_button(
+            Vec2 { x: 0, y: 0 },
+            Vec2 { x: 8, y: 4 },
+            "Click me".into(),
+        );
+        assert!(!clicked, "button should not register click on mouse up outside");
     }
 }

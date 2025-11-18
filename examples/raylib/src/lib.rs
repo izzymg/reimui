@@ -10,10 +10,7 @@ impl RaylibFontInfo {
     pub fn new(rl: &RaylibHandle) -> Self {
         let font = rl.get_font_default();
         let font_size = font.baseSize;
-        Self {
-            font_size,
-            font,
-        }
+        Self { font_size, font }
     }
 }
 
@@ -23,6 +20,39 @@ impl reimui::FontInformation for RaylibFontInfo {
         reimui::Vec2 {
             x: text_size.x as u32,
             y: text_size.y as u32,
+        }
+    }
+}
+
+/// A simple way to implement a color palette by examining the role hint of the draw command and its set flags.
+pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> Color {
+    let is_active = flags & reimui::flags::ACTIVE != 0;
+    let is_hover = flags & reimui::flags::HOVER != 0;
+    match role {
+        reimui::UIDrawRole::Text => {
+            if is_active {
+                Color::WHITE
+            } else if is_hover {
+                Color::BLACK
+            } else {
+                Color::DARKGRAY
+            }
+        }
+        reimui::UIDrawRole::ButtonBackground => {
+            if is_active {
+                Color::DARKBLUE
+            } else if is_hover {
+                Color::LIGHTBLUE
+            } else {
+                Color::BLUE
+            }
+        }
+        reimui::UIDrawRole::ButtonText => {
+            if is_active || is_hover {
+                Color::WHITE
+            } else {
+                Color::BLACK
+            }
         }
     }
 }
@@ -39,33 +69,28 @@ pub fn apply_reimui_to_raylib(
                 content,
                 top_left,
                 flags,
+                role,
             } => {
                 d.draw_text(
                     content,
                     top_left.x as i32,
                     top_left.y as i32,
                     font_info.font_size,
-                    if flags & reimui::flags::ACTIVE != 0 {
-                        Color::DARKRED
-                    } else if flags & reimui::flags::HOVER != 0 {
-                        Color::RED
-                    } else {
-                        Color::BLACK
-                    },
+                    color_palette(*role, *flags),
                 );
             }
-            reimui::DrawCommand::DrawRect { top_left, size, bg_color } => {
+            reimui::DrawCommand::DrawRect {
+                top_left,
+                size,
+                flags,
+                role,
+            } => {
                 d.draw_rectangle(
                     top_left.x as i32,
                     top_left.y as i32,
                     size.x as i32,
                     size.y as i32,
-                    Color::new(
-                        (bg_color.r * 255.0) as u8,
-                        (bg_color.g * 255.0) as u8,
-                        (bg_color.b * 255.0) as u8,
-                        (bg_color.a * 255.0) as u8,
-                    ),
+                    color_palette(*role, *flags),
                 );
             }
         }
