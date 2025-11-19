@@ -1,10 +1,8 @@
 // Stupidly simple render-agnostic immediate mode UI lib
 
 use crate::flags::Flags;
-use std::{
-    collections::VecDeque,
-    ops::{self, Range},
-};
+use core::num;
+use std::{collections::VecDeque, ops::Range};
 
 pub mod prelude {
     pub use super::{
@@ -23,18 +21,19 @@ pub mod flags {
 
 /// Something that can be used as a slider value.
 /// Primitive numerical values are already implemented.
-pub trait SliderValue: PartialOrd + Copy{
-    fn to_f32(self) -> f32;
-    fn from_f32(v: f32) -> Self;
-    fn is_negative(self) -> bool;
+pub trait SliderValue: Copy {
+    fn percentage(value: Self, min: Self, max: Self) -> f32;
+    fn increment(value: Self, step: Self, min: Self, max: Self) -> Self;
+    fn decrement(value: Self, step: Self, min: Self, max: Self) -> Self;
+    fn clamp_value(value: Self, min: Self, max: Self) -> Self;
+    fn step_percentage(step: Self, min: Self, max: Self) -> f32;
 }
-
 
 pub struct SliderState<T> {
     pub value: T,
     pub max: T,
     pub min: T,
-    pub step: T,    
+    pub step: T,
 }
 
 impl<T> SliderState<T> {
@@ -54,18 +53,6 @@ impl<T> SliderState<T> {
             min,
             step,
         }
-    }
-}
-
-impl<T> SliderState<T>
-where
-    T: SliderValue,
-{
-    pub fn percentage(&self) -> f32 {
-        let v: f32 = self.value.to_f32();
-        let min: f32 = self.min.to_f32();
-        let max: f32 = self.max.to_f32();
-        (v - min) / (max - min)
     }
 }
 
@@ -208,6 +195,8 @@ pub enum UIDrawRole {
 /// Persistent UI state object
 pub struct UIState {
     active_rect: Option<Rect>,
+    last_mouse_position: Vec2,
+    active_drag_amt: f32,
 }
 
 impl Default for UIState {
@@ -218,7 +207,11 @@ impl Default for UIState {
 
 impl UIState {
     pub fn new() -> Self {
-        Self { active_rect: None }
+        Self {
+            active_rect: None,
+            last_mouse_position: Vec2::zero(),
+            active_drag_amt: 0.0,
+        }
     }
 }
 
@@ -361,41 +354,70 @@ impl<'f> UIContext<'f> {
 
     pub fn draw_slider<T>(&mut self, rect: Rect, state: &mut SliderState<T>)
     where
-        T: SliderValue + ops::Sub<Output = T> + ops::SubAssign + ops::AddAssign,
+        T: SliderValue,
     {
-        // we want the value of the slider as a percentage of its minimum & maximum
-
         let hovered = self.check_set_hover(rect);
         let is_active = self.is_active(rect);
+        let knob_size = Vec2::new(10, rect.size.y);
 
-        if hovered && is_active {
-            // we want the mouse x coordinate as a percentage of the bar
-            let mouse_x = self.mouse_position.x as f32;
-            let min = rect.top_left.x as f32;
-            let pc = (mouse_x - min) / rect.size.x as f32;
-            // then normalize to the slider's min -> max 
-            let abs_value_f32 = state.min.to_f32() + ((state.max.to_f32() - state.min.to_f32()) * pc);
-            // find the new actual value of the slider state
-            let new_value = T::from_f32(abs_value_f32);
-            let delta = new_value - state.value;
-            if delta.is_negative() {
-                state.value -= state.step;
+        // by how many pixels does each step of the slider correspond to
+        let slider_span = rect.size.x.saturating_sub(knob_size.x);
+        let pixels_per_step = if slider_span == 0 {
+            0.0
+        } else {
+            slider_span as f32 * T::step_percentage(state.step, state.min, state.max)
+        };
+
+        if is_active {
+            // build drag value over this draw
+            let delta_x = self.mouse_position.x as f32 - self.state.last_mouse_position.x as f32;
+            self.state.active_drag_amt += delta_x;
+
+            if pixels_per_step > 0.0 {
+                // increment n steps based on the amount dragged
+                let steps = (self.state.active_drag_amt / pixels_per_step).trunc();
+                let steps_i = steps as i32;
+                if steps_i != 0 {
+                    if steps_i > 0 {
+                        for _ in 0..steps_i {
+                            state.value =
+                                T::increment(state.value, state.step, state.min, state.max);
+                        }
+                    } else {
+                        for _ in 0..(-steps_i) {
+                            state.value =
+                                T::decrement(state.value, state.step, state.min, state.max);
+                        }
+                    }
+
+                    // keep remainder of drag
+                    self.state.active_drag_amt -= (steps as f32) * pixels_per_step;
+                }
             } else {
-                state.value += state.step;
+                // increment once on any drag
+                if self.state.active_drag_amt > 0.0 {
+                    state.value = T::increment(state.value, state.step, state.min, state.max);
+                } else if self.state.active_drag_amt < 0.0 {
+                    state.value = T::decrement(state.value, state.step, state.min, state.max);
+                }
+                self.state.active_drag_amt = 0.0;
             }
         }
-        let value_percentage = state.percentage();
+        state.value = T::clamp_value(state.value, state.min, state.max);
+        let value_percentage =
+            T::percentage(state.value, state.min, state.max).clamp(0.0_f32, 1.0_f32);
         let mut flags = flags::NONE;
         if hovered {
             flags |= flags::HOVER;
         }
 
-        let knob_size = Vec2::new(10, rect.size.y);
-
         // move the knob by the percentage it is into the slider rect
         let knob_top_left = Vec2::add(
             rect.top_left,
-            Vec2::new( ((rect.size.x - knob_size.x) as f32 * value_percentage) as u32, 0),
+            Vec2::new(
+                ((rect.size.x.saturating_sub(knob_size.x)) as f32 * value_percentage) as u32,
+                0,
+            ),
         );
 
         self.draw_rect_raw(rect, flags, UIDrawRole::SliderRect);
@@ -413,11 +435,16 @@ impl<'f> UIContext<'f> {
     pub fn end(mut self) -> UIResult {
         // mouse down over hover => active
         if self.mouse_primary_button == ButtonState::Down {
+            if self.state.active_rect != self.hover_rect {
+                self.state.active_drag_amt = 0.0;
+            }
             self.state.active_rect = self.hover_rect;
         } else {
             self.state.active_rect = None;
+            self.state.active_drag_amt = 0.0;
         }
 
+        self.state.last_mouse_position = self.mouse_position;
         UIResult {
             new_state: self.state,
             commands: self.command_buffer.into(),
@@ -548,6 +575,58 @@ mod test {
             "button should not register click on mouse up outside"
         );
     }
+
+    #[test]
+    fn slider_updates_direction_and_clamps() {
+        let font_info = mock_font_info();
+        let rect = Rect {
+            top_left: Vec2 { x: 0, y: 0 },
+            size: Vec2 { x: 100, y: 12 },
+        };
+        let mut slider_state = SliderState::new(0_u32, 10_u32, 5_u32, 1_u32);
+
+        // prime the slider to become active
+        let mut ctx = UIContext::new(
+            UIState::new(),
+            &font_info,
+            Vec2 { x: 10, y: 6 },
+            ButtonState::Down,
+        );
+        ctx.draw_slider(rect, &mut slider_state);
+        let mut state = ctx.end().new_state;
+
+        // small motions should not cause a step yet
+        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 14, y: 6 }, ButtonState::Down);
+        ctx.draw_slider(rect, &mut slider_state);
+        state = ctx.end().new_state;
+        assert_eq!(slider_state.value, 5);
+
+        // accumulate enough motion to register a single step
+        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 20, y: 6 }, ButtonState::Down);
+        ctx.draw_slider(rect, &mut slider_state);
+        state = ctx.end().new_state;
+        assert_eq!(slider_state.value, 6);
+
+        // moving left far enough should decrease value once
+        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 5, y: 6 }, ButtonState::Down);
+        ctx.draw_slider(rect, &mut slider_state);
+        state = ctx.end().new_state;
+        assert_eq!(slider_state.value, 5);
+
+        // release to reset the drag accumulator
+        let ctx = UIContext::new(state, &font_info, Vec2 { x: 5, y: 6 }, ButtonState::Up);
+        state = ctx.end().new_state;
+
+        // large step decrease should clamp to the minimum without crashing
+        slider_state.step = 10;
+        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 90, y: 6 }, ButtonState::Down);
+        ctx.draw_slider(rect, &mut slider_state);
+        state = ctx.end().new_state;
+        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 0, y: 6 }, ButtonState::Down);
+        ctx.draw_slider(rect, &mut slider_state);
+        ctx.end();
+        assert_eq!(slider_state.value, slider_state.min);
+    }
 }
 
 /// Implementations of slider values for primitive numerical types
@@ -556,10 +635,42 @@ macro_rules! slider_value_impl {
         $(
             impl SliderValue for $t {
                 #[inline]
-                fn to_f32(self) -> f32 { self as f32 }
+                fn percentage(value: Self, min: Self, max: Self) -> f32 {
+                    if max == min {
+                        return 0.0;
+                    }
+                    (value as f32 - min as f32) / (max as f32 - min as f32)
+                }
+
                 #[inline]
-                fn from_f32(v: f32) -> Self { v as Self }
-                fn is_negative(self) -> bool { self < 0 }
+                fn increment(value: Self, step: Self, min: Self, max: Self) -> Self {
+                    let next = value.saturating_add(step);
+                    Self::clamp_value(next, min, max)
+                }
+
+                #[inline]
+                fn decrement(value: Self, step: Self, min: Self, max: Self) -> Self {
+                    let next = value.saturating_sub(step);
+                    Self::clamp_value(next, min, max)
+                }
+
+                #[inline]
+                fn clamp_value(value: Self, min: Self, max: Self) -> Self {
+                    value.clamp(min, max)
+                }
+
+                #[inline]
+                fn step_percentage(step: Self, min: Self, max: Self) -> f32 {
+                    if step == 0 || max == min {
+                        return 0.0;
+                    }
+                    let range = (max as f32 - min as f32).abs();
+                    if range == 0.0 {
+                        0.0
+                    } else {
+                        (step as f32).abs() / range
+                    }
+                }
             }
         )*
     };
@@ -570,15 +681,45 @@ macro_rules! slider_value_impl_floating {
         $(
             impl SliderValue for $t {
                 #[inline]
-                fn to_f32(self) -> f32 { self as f32 }
+                fn percentage(value: Self, min: Self, max: Self) -> f32 {
+                    if max == min {
+                        return 0.0;
+                    }
+
+                    ((value - min) / (max - min)) as f32
+                }
+
                 #[inline]
-                fn from_f32(v: f32) -> Self { v as Self }
-                fn is_negative(self) -> bool { self < 0. }
+                fn increment(value: Self, step: Self, min: Self, max: Self) -> Self {
+                    Self::clamp_value(value + step, min, max)
+                }
+
+                #[inline]
+                fn decrement(value: Self, step: Self, min: Self, max: Self) -> Self {
+                    Self::clamp_value(value - step, min, max)
+                }
+
+                #[inline]
+                fn clamp_value(value: Self, min: Self, max: Self) -> Self {
+                    value.clamp(min, max)
+                }
+
+                #[inline]
+                fn step_percentage(step: Self, min: Self, max: Self) -> f32 {
+                    if step == 0.0 || max == min {
+                        return 0.0;
+                    }
+                    let range = max - min;
+                    if range == 0.0 {
+                        0.0
+                    } else {
+                        (step / range).abs() as f32
+                    }
+                }
             }
         )*
     };
 }
-
 
 slider_value_impl!(i8, u8, i16, u16, i32, u32, i64, u64);
 slider_value_impl_floating!(f32, f64);

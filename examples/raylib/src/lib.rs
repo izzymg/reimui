@@ -40,9 +40,9 @@ pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> C
             if is_active {
                 Color::WHITE
             } else if is_hover {
-                Color::BLACK
+                Color::RED
             } else {
-                Color::DARKGRAY
+                Color::BLACK
             }
         }
         reimui::UIDrawRole::ButtonBackground => {

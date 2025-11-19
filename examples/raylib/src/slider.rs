@@ -45,6 +45,7 @@ impl SliderUI {
             },
             &mut self.slider_a_state,
         );
+        ui_ctx.draw_text(format!("{}", self.slider_a_state.value), Vec2::new(60 + BIG_SLIDER_SIZE.x, 50));
 
         // reassign the state and push the result back for raylib binding
         let ui_result = ui_ctx.end();
