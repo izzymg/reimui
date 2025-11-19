@@ -3,7 +3,7 @@
 use crate::flags::Flags;
 use std::{
     collections::VecDeque,
-    ops::Range,
+    ops::{self, Range},
 };
 
 pub mod prelude {
@@ -23,8 +23,9 @@ pub mod flags {
 
 /// Something that can be used as a slider value.
 /// Primitive numerical values are already implemented.
-pub trait SliderValue: PartialOrd + Copy {
+pub trait SliderValue: PartialOrd + Copy{
     fn to_f32(self) -> f32;
+    fn from_f32(v: f32) -> Self;
 }
 
 
@@ -359,35 +360,38 @@ impl<'f> UIContext<'f> {
         T: SliderValue,
     {
         // we want the value of the slider as a percentage of its minimum & maximum
-        let value_percentage = state.percentage();
 
         let hovered = self.check_set_hover(rect);
+        let is_active = self.is_active(rect);
 
-        if hovered {
+        if hovered && is_active {
             // we want the mouse x coordinate as a percentage of the bar
             let mouse_x = self.mouse_position.x as f32;
             let min = rect.top_left.x as f32;
-            let max = (rect.top_left.x + rect.size.x) as f32;
-            let mouse_t = (mouse_x - min) / (max - min);
-            // @todo izzy: temp debug
-            println!("mouse t: {mouse_t} min,max: {min},{max} mouse_x: {mouse_x}");
+            let pc = (mouse_x - min) / rect.size.x as f32;
+            // then normalize to the slider's min -> max 
+            let abs_value_f32 = state.min.to_f32() + ((state.max.to_f32() - state.min.to_f32()) * pc);
+            // set it back as the value
+            state.value = T::from_f32(abs_value_f32);
         }
-
+        let value_percentage = state.percentage();
         let mut flags = flags::NONE;
         if hovered {
             flags |= flags::HOVER;
         }
 
+        let knob_size = Vec2::new(10, rect.size.y);
+
         // move the knob by the percentage it is into the slider rect
         let knob_top_left = Vec2::add(
             rect.top_left,
-            Vec2::new((rect.size.x as f32 * value_percentage) as u32, 0),
+            Vec2::new( ((rect.size.x - knob_size.x) as f32 * value_percentage) as u32, 0),
         );
 
         self.draw_rect_raw(rect, flags, UIDrawRole::SliderRect);
         self.draw_rect_raw(
             Rect {
-                size: Vec2::new(10, 10),
+                size: knob_size,
                 top_left: knob_top_left,
             },
             flags,
@@ -543,6 +547,8 @@ macro_rules! slider_value_impl {
             impl SliderValue for $t {
                 #[inline]
                 fn to_f32(self) -> f32 { self as f32 }
+                #[inline]
+                fn from_f32(v: f32) -> Self { v as Self }
             }
         )*
     };

@@ -4,7 +4,7 @@ use reimui::prelude::*;
 use crate::*;
 
 // Slider sizes can be configured independently of their ranges
-const BIG_SLIDER_SIZE: Vec2 = Vec2::new(50, 10);
+const BIG_SLIDER_SIZE: Vec2 = Vec2::new(100, 50);
 const SMALL_SLIDER_SIZE: Vec2 = Vec2::new(20, 2);
 
 /// A UI demonstrating sliders
