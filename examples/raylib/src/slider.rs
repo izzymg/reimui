@@ -19,7 +19,7 @@ impl SliderUI {
         Self {
             ui_state: reimui::UIState::new(),
             font_info: RaylibFontInfo::new(rl),
-            slider_a_state: reimui::SliderState::new_range(0..100, 50),
+            slider_a_state: reimui::SliderState::new_range(0..100, 50, 5),
         }
     }
 

@@ -26,6 +26,7 @@ pub mod flags {
 pub trait SliderValue: PartialOrd + Copy{
     fn to_f32(self) -> f32;
     fn from_f32(v: f32) -> Self;
+    fn is_negative(self) -> bool;
 }
 
 
@@ -33,22 +34,25 @@ pub struct SliderState<T> {
     pub value: T,
     pub max: T,
     pub min: T,
+    pub step: T,    
 }
 
 impl<T> SliderState<T> {
-    pub fn new_range(bounds: Range<T>, initial: T) -> Self {
+    pub fn new_range(bounds: Range<T>, initial: T, step: T) -> Self {
         Self {
             value: initial,
             max: bounds.end,
             min: bounds.start,
+            step,
         }
     }
 
-    pub fn new(min: T, max: T, initial: T) -> Self {
+    pub fn new(min: T, max: T, initial: T, step: T) -> Self {
         Self {
             value: initial,
             max,
             min,
+            step,
         }
     }
 }
@@ -357,7 +361,7 @@ impl<'f> UIContext<'f> {
 
     pub fn draw_slider<T>(&mut self, rect: Rect, state: &mut SliderState<T>)
     where
-        T: SliderValue,
+        T: SliderValue + ops::Sub<Output = T> + ops::SubAssign + ops::AddAssign,
     {
         // we want the value of the slider as a percentage of its minimum & maximum
 
@@ -371,8 +375,14 @@ impl<'f> UIContext<'f> {
             let pc = (mouse_x - min) / rect.size.x as f32;
             // then normalize to the slider's min -> max 
             let abs_value_f32 = state.min.to_f32() + ((state.max.to_f32() - state.min.to_f32()) * pc);
-            // set it back as the value
-            state.value = T::from_f32(abs_value_f32);
+            // find the new actual value of the slider state
+            let new_value = T::from_f32(abs_value_f32);
+            let delta = new_value - state.value;
+            if delta.is_negative() {
+                state.value -= state.step;
+            } else {
+                state.value += state.step;
+            }
         }
         let value_percentage = state.percentage();
         let mut flags = flags::NONE;
@@ -549,9 +559,26 @@ macro_rules! slider_value_impl {
                 fn to_f32(self) -> f32 { self as f32 }
                 #[inline]
                 fn from_f32(v: f32) -> Self { v as Self }
+                fn is_negative(self) -> bool { self < 0 }
             }
         )*
     };
 }
 
-slider_value_impl!(i8, u8, i16, u16, i32, u32, f32, i64, u64, f64);
+macro_rules! slider_value_impl_floating {
+    ($($t:ty),* $(,)?) => {
+        $(
+            impl SliderValue for $t {
+                #[inline]
+                fn to_f32(self) -> f32 { self as f32 }
+                #[inline]
+                fn from_f32(v: f32) -> Self { v as Self }
+                fn is_negative(self) -> bool { self < 0. }
+            }
+        )*
+    };
+}
+
+
+slider_value_impl!(i8, u8, i16, u16, i32, u32, i64, u64);
+slider_value_impl_floating!(f32, f64);
