@@ -8,13 +8,13 @@ const BIG_SLIDER_SIZE: Vec2 = Vec2::new(50, 10);
 const SMALL_SLIDER_SIZE: Vec2 = Vec2::new(20, 2);
 
 /// A UI demonstrating sliders
-pub struct SimpleUI {
+pub struct SliderUI {
     ui_state: reimui::UIState,
     font_info: RaylibFontInfo,
     slider_a_state: reimui::SliderState<u32>,
 }
 
-impl SimpleUI {
+impl SliderUI {
     pub fn new(rl: &RaylibHandle) -> Self {
         Self {
             ui_state: reimui::UIState::new(),
@@ -72,5 +72,11 @@ impl SimpleUI {
         let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
         apply_reimui_to_raylib(&ui_result, &mut d, &self.font_info);
+    }
+}
+
+impl SampleUI for SliderUI {
+    fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
+        self.draw(rl, thread);
     }
 }

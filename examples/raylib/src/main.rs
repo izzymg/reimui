@@ -1,6 +1,6 @@
 use std::{env, process::ExitCode};
 
-use reimui_raylib_example::simple;
+use reimui_raylib_example::{SampleUI, simple, slider};
 
 
 /// Simple example runner - actual code may be found inside the relevant file
@@ -21,8 +21,9 @@ fn main() -> ExitCode {
     };
 
     // each example implements the sample ui trait
-    let mut sample_ui = match run.as_str() {
-        "simple" =>  simple::SimpleUI::new(&rl),
+    let sample_ui: &mut dyn SampleUI = match run.as_str() {
+        "simple" =>  &mut simple::SimpleUI::new(&rl),
+        "slider" =>  &mut slider::SliderUI::new(&rl),
         other => {
             println!("unknown example type: '{}'", other);
             return ExitCode::FAILURE;

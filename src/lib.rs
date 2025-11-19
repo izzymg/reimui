@@ -3,7 +3,7 @@
 use crate::flags::Flags;
 use std::{
     collections::VecDeque,
-    ops::{self, Range},
+    ops::Range,
 };
 
 pub mod prelude {
@@ -20,6 +20,13 @@ pub mod flags {
     pub const DISABLED: Flags       = 1 << 1;
     pub const ACTIVE: Flags         = 1 << 2;
 }
+
+/// Something that can be used as a slider value.
+/// Primitive numerical values are already implemented.
+pub trait SliderValue: PartialOrd + Copy {
+    fn to_f32(self) -> f32;
+}
+
 
 pub struct SliderState<T> {
     pub value: T,
@@ -47,10 +54,13 @@ impl<T> SliderState<T> {
 
 impl<T> SliderState<T>
 where
-    T: ops::Sub<Output = T> + ops::Div<Output = T> + Copy,
+    T: SliderValue,
 {
-    pub fn percentage(&self) -> T {
-        (self.value - self.min) / (self.max - self.min)
+    pub fn percentage(&self) -> f32 {
+        let v: f32 = self.value.to_f32();
+        let min: f32 = self.min.to_f32();
+        let max: f32 = self.max.to_f32();
+        (v - min) / (max - min)
     }
 }
 
@@ -346,7 +356,7 @@ impl<'f> UIContext<'f> {
 
     pub fn draw_slider<T>(&mut self, rect: Rect, state: &mut SliderState<T>)
     where
-        T: ops::Sub<Output = T> + ops::Div<Output = T> + ops::Mul<Output = T> + Into<u32> + Copy,
+        T: SliderValue,
     {
         // we want the value of the slider as a percentage of its minimum & maximum
         let value_percentage = state.percentage();
@@ -355,12 +365,12 @@ impl<'f> UIContext<'f> {
 
         if hovered {
             // we want the mouse x coordinate as a percentage of the bar
-            let mouse_x = self.mouse_position.x;
-            let min = rect.top_left.x;
-            let max = rect.top_left.x + rect.size.x;
+            let mouse_x = self.mouse_position.x as f32;
+            let min = rect.top_left.x as f32;
+            let max = (rect.top_left.x + rect.size.x) as f32;
             let mouse_t = (mouse_x - min) / (max - min);
             // @todo izzy: temp debug
-            println!("mouse t: {mouse_t}");
+            println!("mouse t: {mouse_t} min,max: {min},{max} mouse_x: {mouse_x}");
         }
 
         let mut flags = flags::NONE;
@@ -369,10 +379,9 @@ impl<'f> UIContext<'f> {
         }
 
         // move the knob by the percentage it is into the slider rect
-        let value_percentage_u32: u32 = value_percentage.into();
         let knob_top_left = Vec2::add(
             rect.top_left,
-            Vec2::new(rect.size.x * value_percentage_u32, 0),
+            Vec2::new((rect.size.x as f32 * value_percentage) as u32, 0),
         );
 
         self.draw_rect_raw(rect, flags, UIDrawRole::SliderRect);
@@ -526,3 +535,17 @@ mod test {
         );
     }
 }
+
+/// Implementations of slider values for primitive numerical types
+macro_rules! slider_value_impl {
+    ($($t:ty),* $(,)?) => {
+        $(
+            impl SliderValue for $t {
+                #[inline]
+                fn to_f32(self) -> f32 { self as f32 }
+            }
+        )*
+    };
+}
+
+slider_value_impl!(i8, u8, i16, u16, i32, u32, f32, i64, u64, f64);
