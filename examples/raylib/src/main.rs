@@ -1,14 +1,36 @@
-mod simple;
+use std::{env, process::ExitCode};
 
-fn main() {
+use reimui_raylib_example::simple;
+
+
+/// Simple example runner - actual code may be found inside the relevant file
+fn main() -> ExitCode {
     let (mut rl, thread) = raylib::init()
         .size(640, 400)
         .title("reimui + raylib")
         .build();
 
-    let mut simple_ui = simple::SimpleUI::new(&rl);
+    // figure out what example to run from the arg or run 'simple'
+    let run_flag = env::args().nth(1);
+    let run = match run_flag {
+        Some(r) => r,
+        None => {
+            println!("no example arg provided, using 'simple'");
+            "simple".into()
+        }
+    };
+
+    // each example implements the sample ui trait
+    let mut sample_ui = match run.as_str() {
+        "simple" =>  simple::SimpleUI::new(&rl),
+        other => {
+            println!("unknown example type: '{}'", other);
+            return ExitCode::FAILURE;
+        }
+    };
 
     while !rl.window_should_close() {
-        simple_ui.draw(&mut rl, &thread);
+        sample_ui.draw(&mut rl, &thread);
     }
+    ExitCode::SUCCESS
 }

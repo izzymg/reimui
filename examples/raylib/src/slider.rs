@@ -3,53 +3,48 @@ use reimui::prelude::*;
 
 use crate::*;
 
-const BUTTON_PADDING: Vec2 = Vec2 { x: 16, y: 12 };
+// Slider sizes can be configured independently of their ranges
+const BIG_SLIDER_SIZE: Vec2 = Vec2::new(50, 10);
+const SMALL_SLIDER_SIZE: Vec2 = Vec2::new(20, 2);
 
-
-
-/// A simple reimui layout with a few pieces of text and a button with a click counter.
+/// A UI demonstrating sliders
 pub struct SimpleUI {
-    clicked: u32,
     ui_state: reimui::UIState,
     font_info: RaylibFontInfo,
+    slider_a_state: reimui::SliderState<u32>,
 }
 
 impl SimpleUI {
     pub fn new(rl: &RaylibHandle) -> Self {
         Self {
-            clicked: 0,
             ui_state: reimui::UIState::new(),
             font_info: RaylibFontInfo::new(rl),
+            slider_a_state: reimui::SliderState::new_range(0..100, 50),
         }
     }
 
     /// Build reimui UI frame
     fn do_reimui(&mut self, mouse_position: Vec2, mouse_state: ButtonState) -> reimui::UIResult {
-        let mut ui_ctx = UIContext::new(
-            self.ui_state,
-            &self.font_info,
-            mouse_position,
-            mouse_state,
-        );
+        let mut ui_ctx =
+            UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
 
-        // build a simple vertical layout
+        // build a vertical layout
         let mut layout = Layout::new(
             LayoutDirection::Vertical,
             25,
-            Vec2 { x: 28, y: 28 },
-            Vec2 { x: 620, y: 360 },
+            Vec2::new(28, 28),
+            Vec2::new(620, 360),
         );
-        ui_ctx.draw_text_layout(&mut layout, "reimui + raylib".into());
-        ui_ctx.draw_text_layout(&mut layout, "Immediate mode UI rendering to raylib".into());
-        let clicked = ui_ctx.draw_button_layout(
-            &mut layout,
-            BUTTON_PADDING,
-            format!("Click me {}", self.clicked),
-        );
+        ui_ctx.draw_text_layout(&mut layout, "sliders".into());
 
-        if clicked {
-            self.clicked += 1;
-        }
+        // draw our sliders
+        ui_ctx.draw_slider(
+            Rect {
+                size: BIG_SLIDER_SIZE,
+                top_left: Vec2::new(50, 50),
+            },
+            &mut self.slider_a_state,
+        );
 
         // reassign the state and push the result back for raylib binding
         let ui_result = ui_ctx.end();
@@ -77,11 +72,5 @@ impl SimpleUI {
         let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
         apply_reimui_to_raylib(&ui_result, &mut d, &self.font_info);
-    }
-}
-
-impl SampleUI for SimpleUI {
-    fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        self.draw(rl, thread);
     }
 }

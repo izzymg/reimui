@@ -1,5 +1,12 @@
 // Some common reimui -> raylib bindings
 use raylib::prelude::*;
+pub mod slider;
+pub mod simple;
+
+
+pub trait SampleUI {
+    fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread);    
+}
 
 pub struct RaylibFontInfo {
     pub font_size: i32,
@@ -53,6 +60,12 @@ pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> C
             } else {
                 Color::BLACK
             }
+        }
+        reimui::UIDrawRole::SliderKnob => {
+            Color::BLUE
+        }
+        reimui::UIDrawRole::SliderRect => {
+            Color::GRAY
         }
     }
 }

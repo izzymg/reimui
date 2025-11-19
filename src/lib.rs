@@ -1,10 +1,15 @@
 // Stupidly simple render-agnostic immediate mode UI lib
 
-use std::collections::VecDeque;
 use crate::flags::Flags;
+use std::{
+    collections::VecDeque,
+    ops::{self, Range},
+};
 
 pub mod prelude {
-    pub use super::{ButtonState, FontInformation, Layout, LayoutDirection, UIContext, UIState, Vec2};
+    pub use super::{
+        ButtonState, FontInformation, Layout, LayoutDirection, Rect, UIContext, UIState, Vec2,
+    };
 }
 
 #[rustfmt::skip]
@@ -16,13 +21,37 @@ pub mod flags {
     pub const ACTIVE: Flags         = 1 << 2;
 }
 
-/// f32 color
-#[derive(Debug, Clone, Copy)]
-pub struct Color {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-    pub a: f32,
+pub struct SliderState<T> {
+    pub value: T,
+    pub max: T,
+    pub min: T,
+}
+
+impl<T> SliderState<T> {
+    pub fn new_range(bounds: Range<T>, initial: T) -> Self {
+        Self {
+            value: initial,
+            max: bounds.end,
+            min: bounds.start,
+        }
+    }
+
+    pub fn new(min: T, max: T, initial: T) -> Self {
+        Self {
+            value: initial,
+            max,
+            min,
+        }
+    }
+}
+
+impl<T> SliderState<T>
+where
+    T: ops::Sub<Output = T> + ops::Div<Output = T> + Copy,
+{
+    pub fn percentage(&self) -> T {
+        (self.value - self.min) / (self.max - self.min)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -38,6 +67,10 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+    pub const fn new(x: u32, y: u32) -> Self {
+        Self { x, y }
+    }
+
     pub fn zero() -> Self {
         Vec2 { x: 0, y: 0 }
     }
@@ -152,6 +185,8 @@ pub enum UIDrawRole {
     Text,
     ButtonText,
     ButtonBackground,
+    SliderRect,
+    SliderKnob,
 }
 
 #[derive(Copy, Clone)]
@@ -191,11 +226,10 @@ pub struct UIContext<'f> {
 }
 
 impl<'f> UIContext<'f> {
-
-    pub fn draw_rect_raw(&mut self, top_left: Vec2, size: Vec2, flags: Flags, role: UIDrawRole) {
+    pub fn draw_rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawRect {
-            top_left,
-            size,
+            top_left: rect.top_left,
+            size: rect.size,
             flags,
             role,
         });
@@ -209,7 +243,6 @@ impl<'f> UIContext<'f> {
             role,
         });
     }
-
 
     pub fn draw_button_raw(
         &mut self,
@@ -235,16 +268,10 @@ impl<'f> UIContext<'f> {
             flags |= flags::ACTIVE;
         }
 
-        let half_padding = Vec2::div(
-            Vec2::sub(rect.size, text_size),
-            2,
-        );
-        let centered_text_pos = Vec2::add(
-            rect.top_left,
-            half_padding,
-        );
+        let half_padding = Vec2::div(Vec2::sub(rect.size, text_size), 2);
+        let centered_text_pos = Vec2::add(rect.top_left, half_padding);
 
-        self.draw_rect_raw(rect.top_left, rect.size, flags, UIDrawRole::ButtonBackground);
+        self.draw_rect_raw(rect, flags, UIDrawRole::ButtonBackground);
         self.draw_text_raw(label, centered_text_pos, flags, UIDrawRole::ButtonText);
 
         hovered && self.clicked_rect(rect)
@@ -294,7 +321,6 @@ impl<'f> UIContext<'f> {
         });
     }
 
-
     pub fn draw_text_layout(&mut self, layout: &mut Layout, label: String) {
         let text_size = self.font_info.compute_text_size(&label);
         self.draw_text(label, layout.top_left);
@@ -316,6 +342,48 @@ impl<'f> UIContext<'f> {
         let clicked = self.draw_button_raw(layout.top_left, text_size, padding, label);
         layout.recompute(Vec2::add(text_size, padding));
         clicked
+    }
+
+    pub fn draw_slider<T>(&mut self, rect: Rect, state: &mut SliderState<T>)
+    where
+        T: ops::Sub<Output = T> + ops::Div<Output = T> + ops::Mul<Output = T> + Into<u32> + Copy,
+    {
+        // we want the value of the slider as a percentage of its minimum & maximum
+        let value_percentage = state.percentage();
+
+        let hovered = self.check_set_hover(rect);
+
+        if hovered {
+            // we want the mouse x coordinate as a percentage of the bar
+            let mouse_x = self.mouse_position.x;
+            let min = rect.top_left.x;
+            let max = rect.top_left.x + rect.size.x;
+            let mouse_t = (mouse_x - min) / (max - min);
+            // @todo izzy: temp debug
+            println!("mouse t: {mouse_t}");
+        }
+
+        let mut flags = flags::NONE;
+        if hovered {
+            flags |= flags::HOVER;
+        }
+
+        // move the knob by the percentage it is into the slider rect
+        let value_percentage_u32: u32 = value_percentage.into();
+        let knob_top_left = Vec2::add(
+            rect.top_left,
+            Vec2::new(rect.size.x * value_percentage_u32, 0),
+        );
+
+        self.draw_rect_raw(rect, flags, UIDrawRole::SliderRect);
+        self.draw_rect_raw(
+            Rect {
+                size: Vec2::new(10, 10),
+                top_left: knob_top_left,
+            },
+            flags,
+            UIDrawRole::SliderKnob,
+        );
     }
 
     /// Finalize the computation of the UI and return the resulting state and draw info
@@ -410,11 +478,7 @@ mod test {
             Vec2 { x: 10, y: 10 },
             ButtonState::Down,
         );
-        let clicked = ctx.draw_button(
-            Vec2 { x: 0, y: 0 },
-            Vec2 { x: 8, y: 4 },
-            "Click me".into(),
-        );
+        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(!clicked, "button should not register click on mouse down");
         let result = ctx.end();
 
@@ -425,11 +489,7 @@ mod test {
             Vec2 { x: 10, y: 10 },
             ButtonState::Up,
         );
-        let clicked = ctx.draw_button(
-            Vec2 { x: 0, y: 0 },
-            Vec2 { x: 8, y: 4 },
-            "Click me".into(),
-        );
+        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(clicked, "button should register click on mouse up");
     }
 
@@ -445,12 +505,11 @@ mod test {
             Vec2 { x: 100, y: 100 },
             ButtonState::Down,
         );
-        let clicked = ctx.draw_button(
-            Vec2 { x: 0, y: 0 },
-            Vec2 { x: 8, y: 4 },
-            "Click me".into(),
+        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        assert!(
+            !clicked,
+            "button should not register click on mouse down outside"
         );
-        assert!(!clicked, "button should not register click on mouse down outside");
         let result = ctx.end();
 
         // second frame: mouse up outside button
@@ -460,11 +519,10 @@ mod test {
             Vec2 { x: 100, y: 100 },
             ButtonState::Up,
         );
-        let clicked = ctx.draw_button(
-            Vec2 { x: 0, y: 0 },
-            Vec2 { x: 8, y: 4 },
-            "Click me".into(),
+        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        assert!(
+            !clicked,
+            "button should not register click on mouse up outside"
         );
-        assert!(!clicked, "button should not register click on mouse up outside");
     }
 }
