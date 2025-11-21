@@ -352,9 +352,7 @@ impl<'f> UIContext<'f> {
         clicked
     }
 
-    pub fn draw_slider<T>(&mut self, rect: Rect, state: &mut SliderState<T>)
-    where
-        T: SliderValue,
+    pub fn draw_slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>)
     {
         let hovered = self.check_set_hover(rect);
         let is_active = self.is_active(rect);
@@ -429,6 +427,14 @@ impl<'f> UIContext<'f> {
             flags,
             UIDrawRole::SliderKnob,
         );
+    }
+
+    pub fn draw_layout_slider<T: SliderValue>(&mut self, layout: &mut Layout, size: Vec2, state: &mut SliderState<T>) {
+        self.draw_slider(Rect {
+            top_left: layout.top_left,
+            size,
+        }, state);
+        layout.recompute(size);
     }
 
     /// Finalize the computation of the UI and return the resulting state and draw info
