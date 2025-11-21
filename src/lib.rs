@@ -429,7 +429,7 @@ impl<'f> UIContext<'f> {
         );
     }
 
-    pub fn draw_layout_slider<T: SliderValue>(&mut self, layout: &mut Layout, size: Vec2, state: &mut SliderState<T>) {
+    pub fn draw_slider_layout<T: SliderValue>(&mut self, layout: &mut Layout, size: Vec2, state: &mut SliderState<T>) {
         self.draw_slider(Rect {
             top_left: layout.top_left,
             size,

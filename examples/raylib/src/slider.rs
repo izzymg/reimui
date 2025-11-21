@@ -5,13 +5,14 @@ use crate::*;
 
 // Slider sizes can be configured independently of their ranges
 const BIG_SLIDER_SIZE: Vec2 = Vec2::new(100, 50);
-const SMALL_SLIDER_SIZE: Vec2 = Vec2::new(20, 2);
+const SMALL_SLIDER_SIZE: Vec2 = Vec2::new(40, 10);
 
 /// A UI demonstrating sliders
 pub struct SliderUI {
     ui_state: reimui::UIState,
     font_info: RaylibFontInfo,
     slider_a_state: reimui::SliderState<u32>,
+    slider_b_state: reimui::SliderState<f32>,
 }
 
 impl SliderUI {
@@ -20,6 +21,7 @@ impl SliderUI {
             ui_state: reimui::UIState::new(),
             font_info: RaylibFontInfo::new(rl),
             slider_a_state: reimui::SliderState::new_range(0..100, 50, 5),
+            slider_b_state: reimui::SliderState::new_range(0f32..10f32, 5.5, 0.5),
         }
     }
 
@@ -37,15 +39,25 @@ impl SliderUI {
         );
         ui_ctx.draw_text_layout(&mut layout, "sliders".into());
 
+        // make a new horizontal layout for the slider and value text
+        let mut slider_layout = layout.layout(LayoutDirection::Horizontal, 30);
         // draw our sliders
-        ui_ctx.draw_slider(
-            Rect {
-                size: BIG_SLIDER_SIZE,
-                top_left: Vec2::new(50, 50),
-            },
+        ui_ctx.draw_slider_layout(
+            &mut slider_layout,
+            BIG_SLIDER_SIZE,
             &mut self.slider_a_state,
         );
-        ui_ctx.draw_text(format!("{}", self.slider_a_state.value), Vec2::new(60 + BIG_SLIDER_SIZE.x, 50));
+        ui_ctx.draw_text_layout(&mut slider_layout, format!("{}", self.slider_a_state.value));
+
+        // make a new horizontal layout for the slider and value text
+        let mut slider_layout = slider_layout.layout(LayoutDirection::Vertical, 30);
+        // draw our sliders
+        ui_ctx.draw_slider_layout(
+            &mut slider_layout,
+            SMALL_SLIDER_SIZE,
+            &mut self.slider_b_state,
+        );
+        ui_ctx.draw_text_layout(&mut slider_layout, format!("{}", self.slider_b_state.value));
 
         // reassign the state and push the result back for raylib binding
         let ui_result = ui_ctx.end();
