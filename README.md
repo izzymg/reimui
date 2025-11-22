@@ -4,9 +4,17 @@
 
 A render agnostic, immediate-mode GUI lib written in Rust.
 
+> ⚠️ This project is in active, frequently breaking development and probably doesn't work yet
+
 ## Usage sample
 
 !! See the [raylib example](examples/raylib) 
+
+## Features
+
+* Buttons with persistent hover & active states
+* Sliders for generic arbitrary types - step values, independent size from range
+* Vertical & horizontal layout system - build via stack based callbacks
 
 
 ```rs
