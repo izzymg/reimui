@@ -113,6 +113,15 @@ impl Rect {
     }
 }
 
+impl From<Layout> for Rect {
+    fn from(value: Layout) -> Self {
+        Rect {
+            size: value.size,
+            top_left: value.top_left,
+        }
+    }
+}
+
 /// The output of a reimui ui run
 #[derive(Debug, Clone)]
 pub enum DrawCommand {
@@ -196,6 +205,7 @@ pub enum UIDrawRole {
     ButtonBackground,
     SliderRect,
     SliderKnob,
+    LayoutBackground,
 }
 
 #[derive(Copy, Clone)]
@@ -516,6 +526,13 @@ impl<'f> UIContext<'f> {
             .expect("layout: should have popped a layout");
         self.recompute_current_layout(layout.size);
         ret
+    }
+
+    /// Draws a rectange the size of the current layout
+    pub fn layout_rect(&mut self) {
+        let layout = self.get_current_layout();
+        let rect: Rect = (*layout).into();
+        self.rect_raw(rect, flags::NONE, UIDrawRole::LayoutBackground);
     }
 
     /// Finalize the computation of the UI and return the resulting state and draw info

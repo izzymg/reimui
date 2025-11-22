@@ -2,6 +2,7 @@
 use raylib::prelude::*;
 pub mod slider;
 pub mod simple;
+pub mod layouts;
 
 
 pub trait SampleUI {
@@ -66,6 +67,9 @@ pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> C
         }
         reimui::UIDrawRole::SliderRect => {
             Color::GRAY
+        }
+        reimui::UIDrawRole::LayoutBackground => {
+            Color::GREEN
         }
     }
 }
