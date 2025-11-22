@@ -122,20 +122,22 @@ impl From<Layout> for Rect {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct DrawData {
+    pub rect: Rect,
+    pub flags: Flags,
+    pub role: UIDrawRole,
+}
+
 /// The output of a reimui ui run
 #[derive(Debug, Clone)]
 pub enum DrawCommand {
     DrawText {
         content: String,
-        top_left: Vec2,
-        flags: Flags,
-        role: UIDrawRole,
+        draw_data: DrawData,
     },
     DrawRect {
-        top_left: Vec2,
-        size: Vec2,
-        flags: Flags,
-        role: UIDrawRole,
+        draw_data: DrawData,
     },
 }
 
@@ -317,21 +319,19 @@ impl<'f> UIContext<'f> {
             .recompute(size);
     }
 
-    pub fn rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) {
+    /// Returns the index into the command buffer of this draw
+    pub fn rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) -> usize {
+        let idx = self.command_buffer.len();
         self.command_buffer.push_back(DrawCommand::DrawRect {
-            top_left: rect.top_left,
-            size: rect.size,
-            flags,
-            role,
+            draw_data: DrawData { rect, flags, role },
         });
+        idx
     }
 
-    pub fn text_raw(&mut self, label: String, top_left: Vec2, flags: Flags, role: UIDrawRole) {
+    pub fn text_raw(&mut self, label: String, rect: Rect, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
-            top_left,
-            flags,
-            role,
+            draw_data: DrawData { rect, flags, role },
         });
     }
 
@@ -363,7 +363,15 @@ impl<'f> UIContext<'f> {
         let centered_text_pos = Vec2::add(rect.top_left, half_padding);
 
         self.rect_raw(rect, flags, UIDrawRole::ButtonBackground);
-        self.text_raw(label, centered_text_pos, flags, UIDrawRole::ButtonText);
+        self.text_raw(
+            label,
+            Rect {
+                top_left: centered_text_pos,
+                size: text_size,
+            },
+            flags,
+            UIDrawRole::ButtonText,
+        );
 
         hovered && self.clicked_rect(rect)
     }
@@ -387,19 +395,27 @@ impl<'f> UIContext<'f> {
         is_hover
     }
 
-    pub fn text(&mut self, label: String, top_left: Vec2) {
+    pub fn text(&mut self, label: String, rect: Rect) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
-            top_left,
-            flags: 0,
-            role: UIDrawRole::Text,
+            draw_data: DrawData {
+                rect,
+                flags: flags::NONE,
+                role: UIDrawRole::Text,
+            },
         });
     }
 
     pub fn text_layout(&mut self, label: String) {
         let layout = self.get_current_layout();
         let text_size = self.font_info.compute_text_size(&label);
-        self.text(label, layout.top_left);
+        self.text(
+            label,
+            Rect {
+                size: text_size,
+                top_left: layout.top_left,
+            },
+        );
         self.recompute_current_layout(text_size);
     }
 
@@ -506,12 +522,34 @@ impl<'f> UIContext<'f> {
 
     /// Runs `F` inside a layout, using the current or root layout.
     /// If `spacing` is `None` it will use the current layout.
-    pub fn layout<F, T>(&mut self, direction: LayoutDirection, spacing: Option<u32>, draw: F) -> T
+    pub fn layout<F, T>(
+        &mut self,
+        direction: LayoutDirection,
+        spacing: Option<u32>,
+        with_bg: bool,
+        draw: F,
+    ) -> T
     where
         F: FnOnce(&mut Self) -> T,
     {
         // this layout should go wherever the current layout is
         // @TODO izzy: add a "layout_at" fn
+
+        // ensure background is drawn first
+        let mut bg_idx = None;
+        if with_bg {
+            let idx = self.rect_raw(
+                Rect {
+                    top_left: self.get_current_layout().top_left,
+                    size: Vec2::zero(), // temp
+                },
+                flags::NONE,
+                UIDrawRole::LayoutBackground,
+            );
+            bg_idx = Some(idx);
+        }
+
+        // push a new layout based on the current layout position
         let layout = self.get_current_layout();
         self.layout_stack.push(Layout {
             direction,
@@ -519,12 +557,28 @@ impl<'f> UIContext<'f> {
             spacing: spacing.unwrap_or(layout.spacing),
             top_left: layout.top_left,
         });
+        // do the draw, then pop the layout off and recompute the prev layout
         let ret = draw(self);
         let layout = self
             .layout_stack
             .pop()
             .expect("layout: should have popped a layout");
         self.recompute_current_layout(layout.size);
+
+        // update the background with the now-known size
+        if let Some(bg_idx) = bg_idx {
+            let draw_cmd = self
+                .command_buffer
+                .get_mut(bg_idx)
+                .expect("layout: expected command buffer idx to be valid");
+            match draw_cmd {
+                DrawCommand::DrawRect { draw_data } => {
+                    draw_data.rect.size = layout.size;
+                }
+                _ => unreachable!("layout: expected bg_idx to point to a rect draw"),
+            }
+        }
+
         ret
     }
 
@@ -586,7 +640,7 @@ mod test {
         let mut ctx =
             super::UIContext::new(ui_state, &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
         // draw a horizontal group of texts, each with a vertical layout of text inside
-        ctx.layout(LayoutDirection::Horizontal, Some(4), |ctx| {
+        ctx.layout(LayoutDirection::Horizontal, Some(4), false, |ctx| {
             let main_layout = *ctx.get_current_layout();
             for i in 0..3 {
                 let label = format!("Section {}", i);
@@ -600,7 +654,7 @@ mod test {
                 for j in 0..2 {
                     let sub_label = format!("Section {} item {}", i, j);
 
-                    ctx.layout(LayoutDirection::Vertical, Some(2), |ctx| {
+                    ctx.layout(LayoutDirection::Vertical, Some(2), false, |ctx| {
                         ctx.text_layout(sub_label);
 
                         let sub_layout = ctx.get_current_layout();
@@ -625,9 +679,9 @@ mod test {
         let mut ctx =
             super::UIContext::new(ui_state, &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
 
-        ctx.layout(LayoutDirection::Horizontal, Some(4), |ctx| {
+        ctx.layout(LayoutDirection::Horizontal, Some(4), false, |ctx| {
             let parent_before = *ctx.get_current_layout();
-            let child_layout = ctx.layout(LayoutDirection::Vertical, Some(3), |ctx| {
+            let child_layout = ctx.layout(LayoutDirection::Vertical, Some(3), false, |ctx| {
                 ctx.text_layout("Hi".into());
                 ctx.text_layout("WiderText".into());
                 *ctx.get_current_layout()

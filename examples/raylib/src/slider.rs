@@ -30,18 +30,18 @@ impl SliderUI {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
 
         // build a vertical layout
-        ui.layout(LayoutDirection::Vertical, Some(25), |ui| {
+        ui.layout(LayoutDirection::Vertical, Some(25), false, |ui| {
             ui.text_layout("sliders".into());
 
             // make a new horizontal layout for the slider and value text
-            ui.layout(LayoutDirection::Horizontal, Some(30), |ui| {
+            ui.layout(LayoutDirection::Horizontal, Some(30), false, |ui| {
                 // draw our sliders
                 ui.slider_layout(BIG_SLIDER_SIZE, &mut self.slider_a_state);
                 ui.text_layout(format!("{}", self.slider_a_state.value));
             });
 
             // make a new horizontal layout for the slider and value text
-            ui.layout(LayoutDirection::Horizontal, Some(30), |ui| {
+            ui.layout(LayoutDirection::Horizontal, Some(30), false, |ui| {
                 // draw our sliders
                 ui.slider_layout(SMALL_SLIDER_SIZE, &mut self.slider_b_state);
                 ui.text_layout(format!("{}", self.slider_b_state.value));

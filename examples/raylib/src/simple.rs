@@ -26,11 +26,10 @@ impl SimpleUI {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
 
         // build a simple vertical layout
-        ui.layout(LayoutDirection::Vertical, Some(25), |ui| {
+        ui.layout(LayoutDirection::Vertical, Some(25), false, |ui| {
             ui.text_layout("reimui + raylib".into());
             ui.text_layout("Immediate mode UI rendering to raylib".into());
-            let clicked =
-                ui.button_layout(BUTTON_PADDING, format!("Click me {}", self.clicked));
+            let clicked = ui.button_layout(BUTTON_PADDING, format!("Click me {}", self.clicked));
 
             if clicked {
                 self.clicked += 1;

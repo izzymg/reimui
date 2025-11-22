@@ -27,42 +27,55 @@ impl LayoutsUI {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
 
         // main layout - horizontal
-        ui.layout(LayoutDirection::Horizontal, Some(SPACING), |ui| {
+        ui.layout(
+            LayoutDirection::Horizontal,
+            Some(SPACING),
+            self.show_layouts,
+            |ui| {
+                // build a vertical layout with a list of buttons & text
+                ui.layout(
+                    LayoutDirection::Vertical,
+                    Some(SPACING),
+                    self.show_layouts,
+                    |ui| {
+                        ui.text_layout("Layouts - simple list".into());
 
-            // build a vertical layout with a list of buttons & text
-            ui.layout(LayoutDirection::Vertical, Some(SPACING), |ui| {
-                ui.text_layout("Layouts - simple list".into());
-                
-                for i in 0..5 {
-                    ui.layout(LayoutDirection::Horizontal, Some(SPACING), |ui| {
-                        let text = format!("* Item {}", i);
-                        let btn_text = format!("Item {} button", i);
-                        ui.text_layout(text);
-                        ui.button_layout(BUTTON_PADDING,  btn_text);
-                        if self.show_layouts {
-                            ui.layout_rect();
+                        for i in 0..5 {
+                            ui.layout(
+                                LayoutDirection::Horizontal,
+                                Some(SPACING),
+                                self.show_layouts,
+                                |ui| {
+                                    let text = format!("* Item {}", i);
+                                    let btn_text = format!("Item {} button", i);
+                                    ui.text_layout(text);
+                                    ui.button_layout(BUTTON_PADDING, btn_text);
+                                },
+                            );
                         }
-                    });
-                }
-            });
-            
-            // another vertical layout with a toggle for the layouts
-            ui.layout(LayoutDirection::Vertical, Some(SPACING), |ui| {
-                if ui.button_layout(BUTTON_PADDING,  if self.show_layouts {
-                    "Hide layouts".into()
-                } else {
-                    "Show layouts".into()
-                }) {
-                    self.show_layouts = !self.show_layouts;
-                }
-                if self.show_layouts {
-                    ui.layout_rect();
-                }
-            });
-            if self.show_layouts {
-                ui.layout_rect();
-            }
-        });
+                    },
+                );
+
+                // another vertical layout with a toggle for the layouts
+                ui.layout(
+                    LayoutDirection::Vertical,
+                    Some(SPACING),
+                    self.show_layouts,
+                    |ui| {
+                        if ui.button_layout(
+                            BUTTON_PADDING,
+                            if self.show_layouts {
+                                "Hide layouts".into()
+                            } else {
+                                "Show layouts".into()
+                            },
+                        ) {
+                            self.show_layouts = !self.show_layouts;
+                        }
+                    },
+                );
+            },
+        );
 
         // reassign the state and push the result back for raylib binding
         let ui_result = ui.end();

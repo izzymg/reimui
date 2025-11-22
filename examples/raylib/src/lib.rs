@@ -1,12 +1,11 @@
 // Some common reimui -> raylib bindings
 use raylib::prelude::*;
-pub mod slider;
-pub mod simple;
 pub mod layouts;
-
+pub mod simple;
+pub mod slider;
 
 pub trait SampleUI {
-    fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread);    
+    fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread);
 }
 
 pub struct RaylibFontInfo {
@@ -62,15 +61,9 @@ pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> C
                 Color::BLACK
             }
         }
-        reimui::UIDrawRole::SliderKnob => {
-            Color::BLUE
-        }
-        reimui::UIDrawRole::SliderRect => {
-            Color::GRAY
-        }
-        reimui::UIDrawRole::LayoutBackground => {
-            Color::GREEN
-        }
+        reimui::UIDrawRole::SliderKnob => Color::BLUE,
+        reimui::UIDrawRole::SliderRect => Color::GRAY,
+        reimui::UIDrawRole::LayoutBackground => Color::GREEN,
     }
 }
 
@@ -82,32 +75,22 @@ pub fn apply_reimui_to_raylib(
 ) {
     for command in &ui_result.commands {
         match command {
-            reimui::DrawCommand::DrawText {
-                content,
-                top_left,
-                flags,
-                role,
-            } => {
+            reimui::DrawCommand::DrawText { content, draw_data } => {
                 d.draw_text(
                     content,
-                    top_left.x as i32,
-                    top_left.y as i32,
+                    draw_data.rect.top_left.x as i32,
+                    draw_data.rect.top_left.y as i32,
                     font_info.font_size,
-                    color_palette(*role, *flags),
+                    color_palette(draw_data.role, draw_data.flags),
                 );
             }
-            reimui::DrawCommand::DrawRect {
-                top_left,
-                size,
-                flags,
-                role,
-            } => {
+            reimui::DrawCommand::DrawRect { draw_data } => {
                 d.draw_rectangle(
-                    top_left.x as i32,
-                    top_left.y as i32,
-                    size.x as i32,
-                    size.y as i32,
-                    color_palette(*role, *flags),
+                    draw_data.rect.top_left.x as i32,
+                    draw_data.rect.top_left.y as i32,
+                    draw_data.rect.size.x as i32,
+                    draw_data.rect.size.y as i32,
+                    color_palette(draw_data.role, draw_data.flags),
                 );
             }
         }
