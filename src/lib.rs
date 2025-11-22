@@ -1,7 +1,6 @@
 // Stupidly simple render-agnostic immediate mode UI lib
 
 use crate::flags::Flags;
-use core::num;
 use std::{collections::VecDeque, ops::Range};
 
 pub mod prelude {
@@ -158,10 +157,27 @@ impl Layout {
     pub fn recompute(&mut self, size: Vec2) {
         match self.direction {
             LayoutDirection::Vertical => {
-                self.top_left.y += size.y + self.spacing;
+                // add spacing if not first element
+                if self.size.y != 0 {
+                    self.size.y = self.size.y.saturating_add(self.spacing);
+                }
+                self.size.y = self.size.y.saturating_add(size.y);
+                self.size.x = self.size.x.max(size.x);
+                self.top_left.y = self
+                    .top_left
+                    .y
+                    .saturating_add(size.y.saturating_add(self.spacing));
             }
             LayoutDirection::Horizontal => {
-                self.top_left.x += size.x + self.spacing;
+                if self.size.x != 0 {
+                    self.size.x = self.size.x.saturating_add(self.spacing);
+                }
+                self.size.x = self.size.x.saturating_add(size.x);
+                self.size.y = self.size.y.max(size.y);
+                self.top_left.x = self
+                    .top_left
+                    .x
+                    .saturating_add(size.x.saturating_add(self.spacing));
             }
         }
     }
@@ -494,7 +510,10 @@ impl<'f> UIContext<'f> {
             top_left: layout.top_left,
         });
         let ret = draw(self);
-        let layout = self.layout_stack.pop().expect("layout: should have popped a layout");
+        let layout = self
+            .layout_stack
+            .pop()
+            .expect("layout: should have popped a layout");
         self.recompute_current_layout(layout.size);
         ret
     }
@@ -578,9 +597,36 @@ mod test {
         });
 
         println!("layout {:?}", ctx.get_current_layout());
- 
 
         assert_eq!(ctx.command_buffer.len(), 9);
+    }
+
+    #[test]
+    fn nested_layout_size_propagates() {
+        let font_info = mock_font_info();
+        let ui_state = UIState::new();
+        let mut ctx =
+            super::UIContext::new(ui_state, &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
+
+        ctx.layout(LayoutDirection::Horizontal, Some(4), |ctx| {
+            let parent_before = *ctx.get_current_layout();
+            let child_layout = ctx.layout(LayoutDirection::Vertical, Some(3), |ctx| {
+                ctx.draw_text_layout("Hi".into());
+                ctx.draw_text_layout("WiderText".into());
+                *ctx.get_current_layout()
+            });
+            assert_eq!(child_layout.size.x, MOCK_TEXT_WIDTH * 9);
+            assert_eq!(child_layout.size.y, MOCK_TEXT_HEIGHT * 2 + 3);
+
+            let parent_after = *ctx.get_current_layout();
+
+            assert_eq!(
+                parent_after.top_left.x,
+                parent_before.top_left.x + child_layout.size.x + parent_after.spacing
+            );
+            assert_eq!(parent_after.size.x, child_layout.size.x);
+            assert_eq!(parent_after.size.y, child_layout.size.y);
+        });
     }
 
     #[test]
