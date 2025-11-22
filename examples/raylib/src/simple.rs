@@ -27,10 +27,10 @@ impl SimpleUI {
 
         // build a simple vertical layout
         ui.layout(LayoutDirection::Vertical, Some(25), |ui| {
-            ui.draw_text_layout("reimui + raylib".into());
-            ui.draw_text_layout("Immediate mode UI rendering to raylib".into());
+            ui.text_layout("reimui + raylib".into());
+            ui.text_layout("Immediate mode UI rendering to raylib".into());
             let clicked =
-                ui.draw_button_layout(BUTTON_PADDING, format!("Click me {}", self.clicked));
+                ui.button_layout(BUTTON_PADDING, format!("Click me {}", self.clicked));
 
             if clicked {
                 self.clicked += 1;

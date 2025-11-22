@@ -31,20 +31,20 @@ impl SliderUI {
 
         // build a vertical layout
         ui.layout(LayoutDirection::Vertical, Some(25), |ui| {
-            ui.draw_text_layout("sliders".into());
+            ui.text_layout("sliders".into());
 
             // make a new horizontal layout for the slider and value text
             ui.layout(LayoutDirection::Horizontal, Some(30), |ui| {
                 // draw our sliders
-                ui.draw_slider_layout(BIG_SLIDER_SIZE, &mut self.slider_a_state);
-                ui.draw_text_layout(format!("{}", self.slider_a_state.value));
+                ui.slider_layout(BIG_SLIDER_SIZE, &mut self.slider_a_state);
+                ui.text_layout(format!("{}", self.slider_a_state.value));
             });
 
             // make a new horizontal layout for the slider and value text
             ui.layout(LayoutDirection::Horizontal, Some(30), |ui| {
                 // draw our sliders
-                ui.draw_slider_layout(SMALL_SLIDER_SIZE, &mut self.slider_b_state);
-                ui.draw_text_layout(format!("{}", self.slider_b_state.value));
+                ui.slider_layout(SMALL_SLIDER_SIZE, &mut self.slider_b_state);
+                ui.text_layout(format!("{}", self.slider_b_state.value));
             });
         });
 

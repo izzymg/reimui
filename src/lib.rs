@@ -307,7 +307,7 @@ impl<'f> UIContext<'f> {
             .recompute(size);
     }
 
-    pub fn draw_rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) {
+    pub fn rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawRect {
             top_left: rect.top_left,
             size: rect.size,
@@ -316,7 +316,7 @@ impl<'f> UIContext<'f> {
         });
     }
 
-    pub fn draw_text_raw(&mut self, label: String, top_left: Vec2, flags: Flags, role: UIDrawRole) {
+    pub fn text_raw(&mut self, label: String, top_left: Vec2, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
             top_left,
@@ -325,7 +325,7 @@ impl<'f> UIContext<'f> {
         });
     }
 
-    pub fn draw_button_raw(
+    pub fn button_raw(
         &mut self,
         top_left: Vec2,
         text_size: Vec2,
@@ -352,8 +352,8 @@ impl<'f> UIContext<'f> {
         let half_padding = Vec2::div(Vec2::sub(rect.size, text_size), 2);
         let centered_text_pos = Vec2::add(rect.top_left, half_padding);
 
-        self.draw_rect_raw(rect, flags, UIDrawRole::ButtonBackground);
-        self.draw_text_raw(label, centered_text_pos, flags, UIDrawRole::ButtonText);
+        self.rect_raw(rect, flags, UIDrawRole::ButtonBackground);
+        self.text_raw(label, centered_text_pos, flags, UIDrawRole::ButtonText);
 
         hovered && self.clicked_rect(rect)
     }
@@ -377,7 +377,7 @@ impl<'f> UIContext<'f> {
         is_hover
     }
 
-    pub fn draw_text(&mut self, label: String, top_left: Vec2) {
+    pub fn text(&mut self, label: String, top_left: Vec2) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
             top_left,
@@ -386,27 +386,27 @@ impl<'f> UIContext<'f> {
         });
     }
 
-    pub fn draw_text_layout(&mut self, label: String) {
+    pub fn text_layout(&mut self, label: String) {
         let layout = self.get_current_layout();
         let text_size = self.font_info.compute_text_size(&label);
-        self.draw_text(label, layout.top_left);
+        self.text(label, layout.top_left);
         self.recompute_current_layout(text_size);
     }
 
-    pub fn draw_button(&mut self, top_left: Vec2, padding: Vec2, label: String) -> bool {
+    pub fn button(&mut self, top_left: Vec2, padding: Vec2, label: String) -> bool {
         let text_size = self.font_info.compute_text_size(&label);
-        self.draw_button_raw(top_left, text_size, padding, label)
+        self.button_raw(top_left, text_size, padding, label)
     }
 
-    pub fn draw_button_layout(&mut self, padding: Vec2, label: String) -> bool {
+    pub fn button_layout(&mut self, padding: Vec2, label: String) -> bool {
         let layout = self.get_current_layout();
         let text_size = self.font_info.compute_text_size(&label);
-        let clicked = self.draw_button_raw(layout.top_left, text_size, padding, label);
+        let clicked = self.button_raw(layout.top_left, text_size, padding, label);
         self.recompute_current_layout(Vec2::add(text_size, padding));
         clicked
     }
 
-    pub fn draw_slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
+    pub fn slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
         let hovered = self.check_set_hover(rect);
         let is_active = self.is_active(rect);
         let knob_size = Vec2::new(10, rect.size.y);
@@ -471,8 +471,8 @@ impl<'f> UIContext<'f> {
             ),
         );
 
-        self.draw_rect_raw(rect, flags, UIDrawRole::SliderRect);
-        self.draw_rect_raw(
+        self.rect_raw(rect, flags, UIDrawRole::SliderRect);
+        self.rect_raw(
             Rect {
                 size: knob_size,
                 top_left: knob_top_left,
@@ -482,9 +482,9 @@ impl<'f> UIContext<'f> {
         );
     }
 
-    pub fn draw_slider_layout<T: SliderValue>(&mut self, size: Vec2, state: &mut SliderState<T>) {
+    pub fn slider_layout<T: SliderValue>(&mut self, size: Vec2, state: &mut SliderState<T>) {
         let layout = self.get_current_layout();
-        self.draw_slider(
+        self.slider(
             Rect {
                 top_left: layout.top_left,
                 size,
@@ -578,13 +578,13 @@ mod test {
                     "broken test assertion"
                 );
 
-                ctx.draw_text_layout(label);
+                ctx.text_layout(label);
 
                 for j in 0..2 {
                     let sub_label = format!("Section {} item {}", i, j);
 
                     ctx.layout(LayoutDirection::Vertical, Some(2), |ctx| {
-                        ctx.draw_text_layout(sub_label);
+                        ctx.text_layout(sub_label);
 
                         let sub_layout = ctx.get_current_layout();
                         assert_eq!(
@@ -611,8 +611,8 @@ mod test {
         ctx.layout(LayoutDirection::Horizontal, Some(4), |ctx| {
             let parent_before = *ctx.get_current_layout();
             let child_layout = ctx.layout(LayoutDirection::Vertical, Some(3), |ctx| {
-                ctx.draw_text_layout("Hi".into());
-                ctx.draw_text_layout("WiderText".into());
+                ctx.text_layout("Hi".into());
+                ctx.text_layout("WiderText".into());
                 *ctx.get_current_layout()
             });
             assert_eq!(child_layout.size.x, MOCK_TEXT_WIDTH * 9);
@@ -641,7 +641,7 @@ mod test {
             Vec2 { x: 10, y: 10 },
             ButtonState::Down,
         );
-        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(!clicked, "button should not register click on mouse down");
         let result = ctx.end();
 
@@ -652,7 +652,7 @@ mod test {
             Vec2 { x: 10, y: 10 },
             ButtonState::Up,
         );
-        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(clicked, "button should register click on mouse up");
     }
 
@@ -668,7 +668,7 @@ mod test {
             Vec2 { x: 100, y: 100 },
             ButtonState::Down,
         );
-        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(
             !clicked,
             "button should not register click on mouse down outside"
@@ -682,7 +682,7 @@ mod test {
             Vec2 { x: 100, y: 100 },
             ButtonState::Up,
         );
-        let clicked = ctx.draw_button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(
             !clicked,
             "button should not register click on mouse up outside"
@@ -705,24 +705,24 @@ mod test {
             Vec2 { x: 10, y: 6 },
             ButtonState::Down,
         );
-        ctx.draw_slider(rect, &mut slider_state);
+        ctx.slider(rect, &mut slider_state);
         let mut state = ctx.end().new_state;
 
         // small motions should not cause a step yet
         let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 14, y: 6 }, ButtonState::Down);
-        ctx.draw_slider(rect, &mut slider_state);
+        ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
         assert_eq!(slider_state.value, 5);
 
         // accumulate enough motion to register a single step
         let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 20, y: 6 }, ButtonState::Down);
-        ctx.draw_slider(rect, &mut slider_state);
+        ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
         assert_eq!(slider_state.value, 6);
 
         // moving left far enough should decrease value once
         let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 5, y: 6 }, ButtonState::Down);
-        ctx.draw_slider(rect, &mut slider_state);
+        ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
         assert_eq!(slider_state.value, 5);
 
@@ -733,10 +733,10 @@ mod test {
         // large step decrease should clamp to the minimum without crashing
         slider_state.step = 10;
         let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 90, y: 6 }, ButtonState::Down);
-        ctx.draw_slider(rect, &mut slider_state);
+        ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
         let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 0, y: 6 }, ButtonState::Down);
-        ctx.draw_slider(rect, &mut slider_state);
+        ctx.slider(rect, &mut slider_state);
         ctx.end();
         assert_eq!(slider_state.value, slider_state.min);
     }

@@ -31,15 +31,18 @@ fn draw() {
     let mut ui_state = UIState::new();
     loop {
         // transient UI "frame"
-        let mut ui = UIContext::new(UIState::new(), &Font, Vec2 { x: 0, y: 0 }, ButtonState::Up);
-        let mut layout = Layout::new(LayoutDirection::Vertical, 12, Vec2 { x: 16, y: 16 }, Vec2::zero());
+        let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
+        // build a vertical layout
+        ui.layout(LayoutDirection::Vertical, Some(25), |ui| {
+            ui.text_layout("hi from reimui!".into());
 
-        ui.draw_text_layout(&mut layout, "Hello from reimui".into());
-        let clicked = ui.draw_button_layout(&mut layout, Vec2 { x: 12, y: 8 }, "Press me".into());
-        if clicked {
-            println!("clicky");
-        }
-
+            // make a new horizontal layout for the slider and value text
+            ui.layout(LayoutDirection::Horizontal, Some(30), |ui| {
+                // draw our sliders
+                ui.slider_layout(BIG_SLIDER_SIZE, &mut self.slider_a_state);
+                ui.text_layout(format!("{}", self.slider_a_state.value));
+            });
+        });
         let result = ui.end();
 
         reimui_ui_to_renderer(&result); // your draw backend
