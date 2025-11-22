@@ -5,8 +5,6 @@ use crate::*;
 
 const BUTTON_PADDING: Vec2 = Vec2 { x: 16, y: 12 };
 
-
-
 /// A simple reimui layout with a few pieces of text and a button with a click counter.
 pub struct SimpleUI {
     clicked: u32,
@@ -25,34 +23,21 @@ impl SimpleUI {
 
     /// Build reimui UI frame
     fn do_reimui(&mut self, mouse_position: Vec2, mouse_state: ButtonState) -> reimui::UIResult {
-        let mut ui_ctx = UIContext::new(
-            self.ui_state,
-            &self.font_info,
-            mouse_position,
-            mouse_state,
-        );
+        let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
 
         // build a simple vertical layout
-        let mut layout = Layout::new(
-            LayoutDirection::Vertical,
-            25,
-            Vec2 { x: 28, y: 28 },
-            Vec2 { x: 620, y: 360 },
-        );
-        ui_ctx.draw_text_layout(&mut layout, "reimui + raylib".into());
-        ui_ctx.draw_text_layout(&mut layout, "Immediate mode UI rendering to raylib".into());
-        let clicked = ui_ctx.draw_button_layout(
-            &mut layout,
-            BUTTON_PADDING,
-            format!("Click me {}", self.clicked),
-        );
+        ui.layout(LayoutDirection::Vertical, Some(25), |ui| {
+            ui.draw_text_layout("reimui + raylib".into());
+            ui.draw_text_layout("Immediate mode UI rendering to raylib".into());
+            let clicked =
+                ui.draw_button_layout(BUTTON_PADDING, format!("Click me {}", self.clicked));
 
-        if clicked {
-            self.clicked += 1;
-        }
-
+            if clicked {
+                self.clicked += 1;
+            }
+        });
         // reassign the state and push the result back for raylib binding
-        let ui_result = ui_ctx.end();
+        let ui_result = ui.end();
         self.ui_state = ui_result.new_state;
 
         ui_result

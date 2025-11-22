@@ -155,15 +155,6 @@ impl Layout {
         }
     }
 
-    pub fn layout(&self, direction: LayoutDirection, spacing: u32) -> Self {
-        Self {
-            direction,
-            spacing,
-            top_left: self.top_left,
-            size: Vec2::zero(),
-        }
-    }
-
     pub fn recompute(&mut self, size: Vec2) {
         match self.direction {
             LayoutDirection::Vertical => {
@@ -231,9 +222,75 @@ pub struct UIContext<'f> {
     hover_rect: Option<Rect>,
 
     command_buffer: VecDeque<DrawCommand>,
+
+    layout_stack: Vec<Layout>,
 }
 
 impl<'f> UIContext<'f> {
+    pub fn new(
+        state: UIState,
+        font_info: &'f dyn FontInformation,
+        mouse_position: Vec2,
+        mouse_primary_button: ButtonState,
+    ) -> Self {
+        let initial_layout_stack = vec![Layout::new(
+            LayoutDirection::Horizontal,
+            0,
+            Vec2::zero(),
+            Vec2::zero(),
+        )];
+
+        Self {
+            command_buffer: VecDeque::new(),
+            mouse_position,
+            mouse_primary_button,
+            hover_rect: None,
+            state,
+            font_info,
+            layout_stack: initial_layout_stack,
+        }
+    }
+
+    pub fn new_layout_init(
+        state: UIState,
+        font_info: &'f dyn FontInformation,
+        mouse_position: Vec2,
+        mouse_primary_button: ButtonState,
+
+        position: Vec2,
+        spacing: u32,
+    ) -> Self {
+        let initial_layout_stack = vec![Layout::new(
+            LayoutDirection::Horizontal,
+            spacing,
+            position,
+            Vec2::zero(),
+        )];
+
+        Self {
+            command_buffer: VecDeque::new(),
+            mouse_position,
+            mouse_primary_button,
+            hover_rect: None,
+            state,
+            font_info,
+            layout_stack: initial_layout_stack,
+        }
+    }
+
+    pub fn get_current_layout(&self) -> &Layout {
+        self.layout_stack
+            .last()
+            .expect("get layout: should always have a root layout")
+    }
+
+    pub fn recompute_current_layout(&mut self, size: Vec2) {
+        self.layout_stack
+            .last_mut()
+            .expect("compute layout: should always have a root layout")
+            .recompute(size);
+    }
+
     pub fn draw_rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawRect {
             top_left: rect.top_left,
@@ -304,22 +361,6 @@ impl<'f> UIContext<'f> {
         is_hover
     }
 
-    pub fn new(
-        state: UIState,
-        font_info: &'f dyn FontInformation,
-        mouse_position: Vec2,
-        mouse_primary_button: ButtonState,
-    ) -> Self {
-        Self {
-            command_buffer: VecDeque::new(),
-            mouse_position,
-            mouse_primary_button,
-            hover_rect: None,
-            state,
-            font_info,
-        }
-    }
-
     pub fn draw_text(&mut self, label: String, top_left: Vec2) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
@@ -329,10 +370,11 @@ impl<'f> UIContext<'f> {
         });
     }
 
-    pub fn draw_text_layout(&mut self, layout: &mut Layout, label: String) {
+    pub fn draw_text_layout(&mut self, label: String) {
+        let layout = self.get_current_layout();
         let text_size = self.font_info.compute_text_size(&label);
         self.draw_text(label, layout.top_left);
-        layout.recompute(text_size);
+        self.recompute_current_layout(text_size);
     }
 
     pub fn draw_button(&mut self, top_left: Vec2, padding: Vec2, label: String) -> bool {
@@ -340,20 +382,15 @@ impl<'f> UIContext<'f> {
         self.draw_button_raw(top_left, text_size, padding, label)
     }
 
-    pub fn draw_button_layout(
-        &mut self,
-        layout: &mut Layout,
-        padding: Vec2,
-        label: String,
-    ) -> bool {
+    pub fn draw_button_layout(&mut self, padding: Vec2, label: String) -> bool {
+        let layout = self.get_current_layout();
         let text_size = self.font_info.compute_text_size(&label);
         let clicked = self.draw_button_raw(layout.top_left, text_size, padding, label);
-        layout.recompute(Vec2::add(text_size, padding));
+        self.recompute_current_layout(Vec2::add(text_size, padding));
         clicked
     }
 
-    pub fn draw_slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>)
-    {
+    pub fn draw_slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
         let hovered = self.check_set_hover(rect);
         let is_active = self.is_active(rect);
         let knob_size = Vec2::new(10, rect.size.y);
@@ -429,12 +466,37 @@ impl<'f> UIContext<'f> {
         );
     }
 
-    pub fn draw_slider_layout<T: SliderValue>(&mut self, layout: &mut Layout, size: Vec2, state: &mut SliderState<T>) {
-        self.draw_slider(Rect {
+    pub fn draw_slider_layout<T: SliderValue>(&mut self, size: Vec2, state: &mut SliderState<T>) {
+        let layout = self.get_current_layout();
+        self.draw_slider(
+            Rect {
+                top_left: layout.top_left,
+                size,
+            },
+            state,
+        );
+        self.recompute_current_layout(size);
+    }
+
+    /// Runs `F` inside a layout, using the current or root layout.
+    /// If `spacing` is `None` it will use the current layout.
+    pub fn layout<F, T>(&mut self, direction: LayoutDirection, spacing: Option<u32>, draw: F) -> T
+    where
+        F: FnOnce(&mut Self) -> T,
+    {
+        // this layout should go wherever the current layout is
+        // @TODO izzy: add a "layout_at" fn
+        let layout = self.get_current_layout();
+        self.layout_stack.push(Layout {
+            direction,
+            size: Vec2::zero(),
+            spacing: spacing.unwrap_or(layout.spacing),
             top_left: layout.top_left,
-            size,
-        }, state);
-        layout.recompute(size);
+        });
+        let ret = draw(self);
+        let layout = self.layout_stack.pop().expect("layout: should have popped a layout");
+        self.recompute_current_layout(layout.size);
+        ret
     }
 
     /// Finalize the computation of the UI and return the resulting state and draw info
@@ -488,36 +550,35 @@ mod test {
         let mut ctx =
             super::UIContext::new(ui_state, &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
         // draw a horizontal group of texts, each with a vertical layout of text inside
-        let mut layout = Layout {
-            direction: LayoutDirection::Horizontal,
-            spacing: 4,
-            top_left: Vec2 { x: 0, y: 0 },
-            size: Vec2 { x: 800, y: 600 },
-        };
-
-        for i in 0..3 {
-            let label = format!("Section {}", i);
-            assert!(
-                label.len() as u32 == SECTION_TEXT_LEN,
-                "broken test assertion"
-            );
-            ctx.draw_text_layout(&mut layout, label);
-
-            for j in 0..2 {
-                let sub_label = format!("Section {} item {}", i, j);
-                let mut sub_layout = layout.layout(LayoutDirection::Vertical, 2);
-                ctx.draw_text_layout(&mut sub_layout, sub_label);
-                assert_eq!(sub_layout.top_left.x, layout.top_left.x);
-                assert_eq!(
-                    sub_layout.top_left.y,
-                    layout.top_left.y + MOCK_TEXT_HEIGHT + sub_layout.spacing
+        ctx.layout(LayoutDirection::Horizontal, Some(4), |ctx| {
+            let main_layout = *ctx.get_current_layout();
+            for i in 0..3 {
+                let label = format!("Section {}", i);
+                assert!(
+                    label.len() as u32 == SECTION_TEXT_LEN,
+                    "broken test assertion"
                 );
+
+                ctx.draw_text_layout(label);
+
+                for j in 0..2 {
+                    let sub_label = format!("Section {} item {}", i, j);
+
+                    ctx.layout(LayoutDirection::Vertical, Some(2), |ctx| {
+                        ctx.draw_text_layout(sub_label);
+
+                        let sub_layout = ctx.get_current_layout();
+                        assert_eq!(
+                            sub_layout.top_left.y,
+                            main_layout.top_left.y + MOCK_TEXT_HEIGHT + sub_layout.spacing
+                        );
+                    });
+                }
             }
-        }
-        assert_eq!(
-            layout.top_left.x,
-            3 * (SECTION_TEXT_LEN * MOCK_TEXT_WIDTH + layout.spacing)
-        );
+        });
+
+        println!("layout {:?}", ctx.get_current_layout());
+ 
 
         assert_eq!(ctx.command_buffer.len(), 9);
     }

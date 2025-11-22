@@ -27,40 +27,29 @@ impl SliderUI {
 
     /// Build reimui UI frame
     fn do_reimui(&mut self, mouse_position: Vec2, mouse_state: ButtonState) -> reimui::UIResult {
-        let mut ui_ctx =
-            UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
+        let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
 
         // build a vertical layout
-        let mut layout = Layout::new(
-            LayoutDirection::Vertical,
-            25,
-            Vec2::new(28, 28),
-            Vec2::new(620, 360),
-        );
-        ui_ctx.draw_text_layout(&mut layout, "sliders".into());
+        ui.layout(LayoutDirection::Vertical, Some(25), |ui| {
+            ui.draw_text_layout("sliders".into());
 
-        // make a new horizontal layout for the slider and value text
-        let mut slider_layout = layout.layout(LayoutDirection::Horizontal, 30);
-        // draw our sliders
-        ui_ctx.draw_slider_layout(
-            &mut slider_layout,
-            BIG_SLIDER_SIZE,
-            &mut self.slider_a_state,
-        );
-        ui_ctx.draw_text_layout(&mut slider_layout, format!("{}", self.slider_a_state.value));
+            // make a new horizontal layout for the slider and value text
+            ui.layout(LayoutDirection::Horizontal, Some(30), |ui| {
+                // draw our sliders
+                ui.draw_slider_layout(BIG_SLIDER_SIZE, &mut self.slider_a_state);
+                ui.draw_text_layout(format!("{}", self.slider_a_state.value));
+            });
 
-        // make a new horizontal layout for the slider and value text
-        let mut slider_layout = slider_layout.layout(LayoutDirection::Vertical, 30);
-        // draw our sliders
-        ui_ctx.draw_slider_layout(
-            &mut slider_layout,
-            SMALL_SLIDER_SIZE,
-            &mut self.slider_b_state,
-        );
-        ui_ctx.draw_text_layout(&mut slider_layout, format!("{}", self.slider_b_state.value));
+            // make a new horizontal layout for the slider and value text
+            ui.layout(LayoutDirection::Horizontal, Some(30), |ui| {
+                // draw our sliders
+                ui.draw_slider_layout(SMALL_SLIDER_SIZE, &mut self.slider_b_state);
+                ui.draw_text_layout(format!("{}", self.slider_b_state.value));
+            });
+        });
 
         // reassign the state and push the result back for raylib binding
-        let ui_result = ui_ctx.end();
+        let ui_result = ui.end();
         self.ui_state = ui_result.new_state;
 
         ui_result
