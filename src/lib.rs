@@ -127,6 +127,7 @@ pub struct DrawData {
     pub rect: Rect,
     pub flags: Flags,
     pub role: UIDrawRole,
+    pub class_list: Option<ClassList>
 }
 
 /// The output of a reimui ui run
@@ -210,6 +211,38 @@ pub enum UIDrawRole {
     LayoutBackground,
 }
 
+/// Tiny wrapper for an assumed-space-separated list of classes/tags.
+/// Allows for unique styling of UI elements (e.g. "cool-btn text-red").
+/// Fast enough if not used excessively.
+#[derive(Copy, Clone, Debug)]
+pub struct ClassList {
+    pub classes: &'static str
+}
+
+impl ClassList {
+
+    pub fn new(tags: &'static str) -> Self {
+        Self {
+            classes: tags
+        }
+    }
+
+    /// Returns true if these tags contain the given tag, by separating on whitespace.
+    pub fn has(&self, tag: &'static str) -> bool {
+        self.classes.split_whitespace().any(|t| t.eq(tag))
+    }
+}
+
+impl PartialEq for ClassList {
+    fn eq(&self, other: &Self) -> bool {
+        self.classes.eq(other.classes)
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.classes.ne(other.classes)
+    }
+}
+
 #[derive(Copy, Clone)]
 /// Persistent UI state object
 pub struct UIState {
@@ -252,6 +285,8 @@ pub struct UIContext<'f> {
     command_buffer: VecDeque<DrawCommand>,
 
     layout_stack: Vec<Layout>,
+
+    next_class: Option<ClassList>,
 }
 
 impl<'f> UIContext<'f> {
@@ -276,6 +311,7 @@ impl<'f> UIContext<'f> {
             state,
             font_info,
             layout_stack: initial_layout_stack,
+            next_class: None,
         }
     }
 
@@ -303,6 +339,7 @@ impl<'f> UIContext<'f> {
             state,
             font_info,
             layout_stack: initial_layout_stack,
+            next_class: None,
         }
     }
 
@@ -319,11 +356,31 @@ impl<'f> UIContext<'f> {
             .recompute(size);
     }
 
+    /// Sets the classlist used for all draws to `class_list`.
+    /// Clear it using `clear_class_list` or see `with_class_list`.
+    pub fn set_class_list(&mut self, class_list: ClassList) {
+        self.next_class = Some(class_list);
+    }
+    
+    /// Clears the currently used class list for drawing.
+    /// Set it using `set_class_list` or see `with_class_list`.
+    pub fn clear_class_list(&mut self) {
+        self.next_class = None;
+    }
+
+    /// Executes `func` providing this UI context and returning its result, with the `class_list` set for the duration of the call.
+    pub fn with_class_list<F, T>(&mut self, class_list: ClassList, func: F) -> T where F: FnOnce(&mut Self) -> T {
+        self.set_class_list(class_list);
+        let ret = func(self);
+        self.clear_class_list();
+        ret
+    }
+
     /// Returns the index into the command buffer of this draw
     pub fn rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) -> usize {
         let idx = self.command_buffer.len();
         self.command_buffer.push_back(DrawCommand::DrawRect {
-            draw_data: DrawData { rect, flags, role },
+            draw_data: DrawData { rect, flags, role, class_list: self.next_class },
         });
         idx
     }
@@ -331,7 +388,7 @@ impl<'f> UIContext<'f> {
     pub fn text_raw(&mut self, label: String, rect: Rect, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
-            draw_data: DrawData { rect, flags, role },
+            draw_data: DrawData { rect, flags, role, class_list: self.next_class },
         });
     }
 
@@ -396,14 +453,7 @@ impl<'f> UIContext<'f> {
     }
 
     pub fn text(&mut self, label: String, rect: Rect) {
-        self.command_buffer.push_back(DrawCommand::DrawText {
-            content: label,
-            draw_data: DrawData {
-                rect,
-                flags: flags::NONE,
-                role: UIDrawRole::Text,
-            },
-        });
+        self.text_raw(label, rect, flags::NONE, UIDrawRole::Text);
     }
 
     pub fn text_layout(&mut self, label: String) {

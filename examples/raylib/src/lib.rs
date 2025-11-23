@@ -25,8 +25,8 @@ impl reimui::FontInformation for RaylibFontInfo {
     fn compute_text_size(&self, text: &str) -> reimui::Vec2 {
         let text_size = self.font.measure_text(text, self.font_size as f32, 1.0);
         reimui::Vec2 {
-            x: text_size.x as u32,
-            y: text_size.y as u32,
+            x: text_size.x.ceil() as u32,
+            y: text_size.y.ceil() as u32,
         }
     }
 }
@@ -51,7 +51,7 @@ pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> C
             } else if is_hover {
                 Color::LIGHTBLUE
             } else {
-                Color::BLUE
+                Color::BLUEVIOLET
             }
         }
         reimui::UIDrawRole::ButtonText => {
