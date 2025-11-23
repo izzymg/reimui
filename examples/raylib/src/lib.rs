@@ -1,5 +1,6 @@
 // Some common reimui -> raylib bindings
 use raylib::prelude::*;
+pub mod class_lists;
 pub mod layouts;
 pub mod simple;
 pub mod slider;
@@ -32,10 +33,15 @@ impl reimui::FontInformation for RaylibFontInfo {
 }
 
 /// A simple way to implement a color palette by examining the role hint of the draw command and its set flags.
-pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> Color {
+pub fn color_palette(
+    role: reimui::UIDrawRole,
+    flags: reimui::flags::Flags,
+    class_list: Option<reimui::ClassList>,
+) -> Color {
     let is_active = flags & reimui::flags::ACTIVE != 0;
     let is_hover = flags & reimui::flags::HOVER != 0;
-    match role {
+    let has_class = |tag: &'static str| class_list.is_some_and(|cls| cls.has(tag));
+    let mut color = match role {
         reimui::UIDrawRole::Text => {
             if is_active {
                 Color::WHITE
@@ -64,7 +70,38 @@ pub fn color_palette(role: reimui::UIDrawRole, flags: reimui::flags::Flags) -> C
         reimui::UIDrawRole::SliderKnob => Color::BLUE,
         reimui::UIDrawRole::SliderRect => Color::GRAY,
         reimui::UIDrawRole::LayoutBackground => Color::GREEN,
+    };
+
+    if matches!(role, reimui::UIDrawRole::LayoutBackground) && has_class("panel") {
+        color = Color::LIGHTGRAY;
     }
+
+    if matches!(role, reimui::UIDrawRole::Text | reimui::UIDrawRole::ButtonText) {
+        if has_class("muted") {
+            color = Color::DARKGRAY;
+        }
+        if has_class("accent") {
+            color = Color::DARKBLUE;
+        }
+    }
+
+    if has_class("danger") {
+        match role {
+            reimui::UIDrawRole::ButtonBackground => {
+                color = if is_active {
+                    Color::MAROON
+                } else if is_hover {
+                    Color::RED
+                } else {
+                    Color::ORANGE
+                };
+            }
+            reimui::UIDrawRole::ButtonText => color = Color::WHITE,
+            _ => {}
+        }
+    }
+
+    color
 }
 
 /// Applies the result of a reimui draw to raylib
@@ -81,7 +118,7 @@ pub fn apply_reimui_to_raylib(
                     draw_data.rect.top_left.x as i32,
                     draw_data.rect.top_left.y as i32,
                     font_info.font_size,
-                    color_palette(draw_data.role, draw_data.flags),
+                    color_palette(draw_data.role, draw_data.flags, draw_data.class_list),
                 );
             }
             reimui::DrawCommand::DrawRect { draw_data } => {
@@ -90,7 +127,7 @@ pub fn apply_reimui_to_raylib(
                     draw_data.rect.top_left.y as i32,
                     draw_data.rect.size.x as i32,
                     draw_data.rect.size.y as i32,
-                    color_palette(draw_data.role, draw_data.flags),
+                    color_palette(draw_data.role, draw_data.flags, draw_data.class_list),
                 );
             }
         }

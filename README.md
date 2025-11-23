@@ -11,6 +11,7 @@ A render agnostic, immediate-mode GUI lib written in Rust.
 * Buttons with persistent hover & active states
 * Sliders for generic arbitrary types - step values, independent size from range
 * Vertical & horizontal layout system - build via stack based callbacks
+* Optional static string "class lists" for unique styling hooks 
 
 ## Usage sample
 
