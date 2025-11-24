@@ -127,7 +127,7 @@ pub struct DrawData {
     pub rect: Rect,
     pub flags: Flags,
     pub role: UIDrawRole,
-    pub class_list: Option<ClassList>
+    pub class_list: Option<ClassList>,
 }
 
 /// The output of a reimui ui run
@@ -216,15 +216,12 @@ pub enum UIDrawRole {
 /// Fast enough if not used excessively.
 #[derive(Copy, Clone, Debug)]
 pub struct ClassList {
-    pub classes: &'static str
+    pub classes: &'static str,
 }
 
 impl ClassList {
-
     pub fn new(tags: &'static str) -> Self {
-        Self {
-            classes: tags
-        }
+        Self { classes: tags }
     }
 
     /// Returns true if these tags contain the given tag, by separating on whitespace.
@@ -361,7 +358,7 @@ impl<'f> UIContext<'f> {
     pub fn set_class_list(&mut self, class_list: ClassList) {
         self.next_class = Some(class_list);
     }
-    
+
     /// Clears the currently used class list for drawing.
     /// Set it using `set_class_list` or see `with_class_list`.
     pub fn clear_class_list(&mut self) {
@@ -369,7 +366,10 @@ impl<'f> UIContext<'f> {
     }
 
     /// Executes `func` providing this UI context and returning its result, with the `class_list` set for the duration of the call.
-    pub fn with_class_list<F, T>(&mut self, class_list: ClassList, func: F) -> T where F: FnOnce(&mut Self) -> T {
+    pub fn with_class_list<F, T>(&mut self, class_list: ClassList, func: F) -> T
+    where
+        F: FnOnce(&mut Self) -> T,
+    {
         self.set_class_list(class_list);
         let ret = func(self);
         self.clear_class_list();
@@ -380,7 +380,12 @@ impl<'f> UIContext<'f> {
     pub fn rect_raw(&mut self, rect: Rect, flags: Flags, role: UIDrawRole) -> usize {
         let idx = self.command_buffer.len();
         self.command_buffer.push_back(DrawCommand::DrawRect {
-            draw_data: DrawData { rect, flags, role, class_list: self.next_class },
+            draw_data: DrawData {
+                rect,
+                flags,
+                role,
+                class_list: self.next_class,
+            },
         });
         idx
     }
@@ -388,7 +393,12 @@ impl<'f> UIContext<'f> {
     pub fn text_raw(&mut self, label: String, rect: Rect, flags: Flags, role: UIDrawRole) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
-            draw_data: DrawData { rect, flags, role, class_list: self.next_class },
+            draw_data: DrawData {
+                rect,
+                flags,
+                role,
+                class_list: self.next_class,
+            },
         });
     }
 
@@ -570,12 +580,34 @@ impl<'f> UIContext<'f> {
         self.recompute_current_layout(size);
     }
 
-    /// Runs `F` inside a layout, using the current or root layout.
-    /// If `spacing` is `None` it will use the current layout.
+    /// Runs `F` inside a layout, using the current layout.
+    /// If `spacing` is `None` it will use the current layout spacing.
     pub fn layout<F, T>(
         &mut self,
         direction: LayoutDirection,
         spacing: Option<u32>,
+        with_bg: bool,
+        draw: F,
+    ) -> T
+    where
+        F: FnOnce(&mut Self) -> T,
+    {
+        let current_layout = self.get_current_layout();
+        self.layout_at(
+            current_layout.top_left,
+            direction,
+            spacing.unwrap_or(current_layout.spacing),
+            with_bg,
+            draw,
+        )
+    }
+
+    /// Runs `F` inside a layout, using the provided position.
+    pub fn layout_at<F, T>(
+        &mut self,
+        top_left: Vec2,
+        direction: LayoutDirection,
+        spacing: u32,
         with_bg: bool,
         draw: F,
     ) -> T
@@ -600,12 +632,11 @@ impl<'f> UIContext<'f> {
         }
 
         // push a new layout based on the current layout position
-        let layout = self.get_current_layout();
         self.layout_stack.push(Layout {
             direction,
             size: Vec2::zero(),
-            spacing: spacing.unwrap_or(layout.spacing),
-            top_left: layout.top_left,
+            spacing: spacing,
+            top_left: top_left,
         });
         // do the draw, then pop the layout off and recompute the prev layout
         let ret = draw(self);
