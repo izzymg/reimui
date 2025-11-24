@@ -135,6 +135,7 @@ pub struct DrawData {
 pub enum DrawCommand {
     DrawText {
         content: String,
+        text_scale: f32,
         draw_data: DrawData,
     },
     DrawRect {
@@ -197,7 +198,7 @@ impl Layout {
 
 /// Tell me how big your text is
 pub trait FontInformation {
-    fn compute_text_size(&self, text: &str) -> Vec2;
+    fn compute_text_size(&self, text: &str, scale: f32) -> Vec2;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -390,9 +391,17 @@ impl<'f> UIContext<'f> {
         idx
     }
 
-    pub fn text_raw(&mut self, label: String, rect: Rect, flags: Flags, role: UIDrawRole) {
+    pub fn text_raw(
+        &mut self,
+        label: String,
+        rect: Rect,
+        flags: Flags,
+        role: UIDrawRole,
+        scale: f32,
+    ) {
         self.command_buffer.push_back(DrawCommand::DrawText {
             content: label,
+            text_scale: scale,
             draw_data: DrawData {
                 rect,
                 flags,
@@ -408,6 +417,7 @@ impl<'f> UIContext<'f> {
         text_size: Vec2,
         padding: Vec2,
         label: String,
+        text_scale: f32,
     ) -> bool {
         let button_size = Vec2::add(text_size, padding);
         let rect = Rect {
@@ -438,6 +448,7 @@ impl<'f> UIContext<'f> {
             },
             flags,
             UIDrawRole::ButtonText,
+            text_scale,
         );
 
         hovered && self.clicked_rect(rect)
@@ -463,31 +474,54 @@ impl<'f> UIContext<'f> {
     }
 
     pub fn text(&mut self, label: String, rect: Rect) {
-        self.text_raw(label, rect, flags::NONE, UIDrawRole::Text);
+        self.text_scaled(label, rect, 1.0);
+    }
+
+    pub fn text_scaled(&mut self, label: String, rect: Rect, scale: f32) {
+        self.text_raw(label, rect, flags::NONE, UIDrawRole::Text, scale);
     }
 
     pub fn text_layout(&mut self, label: String) {
+        self.text_layout_scaled(label, 1.0);
+    }
+
+    pub fn text_layout_scaled(&mut self, label: String, scale: f32) {
         let layout = self.get_current_layout();
-        let text_size = self.font_info.compute_text_size(&label);
-        self.text(
+        let text_size = self.font_info.compute_text_size(&label, scale);
+        self.text_scaled(
             label,
             Rect {
                 size: text_size,
                 top_left: layout.top_left,
             },
+            scale,
         );
         self.recompute_current_layout(text_size);
     }
 
     pub fn button(&mut self, top_left: Vec2, padding: Vec2, label: String) -> bool {
-        let text_size = self.font_info.compute_text_size(&label);
-        self.button_raw(top_left, text_size, padding, label)
+        self.button_scaled(top_left, padding, label, 1.0)
+    }
+
+    pub fn button_scaled(
+        &mut self,
+        top_left: Vec2,
+        padding: Vec2,
+        label: String,
+        scale: f32,
+    ) -> bool {
+        let text_size = self.font_info.compute_text_size(&label, scale);
+        self.button_raw(top_left, text_size, padding, label, scale)
     }
 
     pub fn button_layout(&mut self, padding: Vec2, label: String) -> bool {
+        self.button_layout_scaled(padding, label, 1.0)
+    }
+
+    pub fn button_layout_scaled(&mut self, padding: Vec2, label: String, scale: f32) -> bool {
         let layout = self.get_current_layout();
-        let text_size = self.font_info.compute_text_size(&label);
-        let clicked = self.button_raw(layout.top_left, text_size, padding, label);
+        let text_size = self.font_info.compute_text_size(&label, scale);
+        let clicked = self.button_raw(layout.top_left, text_size, padding, label, scale);
         self.recompute_current_layout(Vec2::add(text_size, padding));
         clicked
     }
@@ -702,10 +736,11 @@ mod test {
     fn mock_font_info() -> impl FontInformation {
         struct MockFontInfo;
         impl FontInformation for MockFontInfo {
-            fn compute_text_size(&self, text: &str) -> Vec2 {
+            fn compute_text_size(&self, text: &str, scale: f32) -> Vec2 {
+                let scale = scale.max(0.0);
                 Vec2 {
-                    x: text.len() as u32 * MOCK_TEXT_WIDTH,
-                    y: MOCK_TEXT_HEIGHT,
+                    x: (text.len() as f32 * MOCK_TEXT_WIDTH as f32 * scale).ceil() as u32,
+                    y: (MOCK_TEXT_HEIGHT as f32 * scale).ceil() as u32,
                 }
             }
         }

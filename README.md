@@ -30,7 +30,7 @@ pub struct Font {
 }
 
 impl reimui::FontInformation for Font {
-    fn compute_text_size(&self, text: &str) -> reimui::Vec2 {
+    fn compute_text_size(&self, text: &str, scale: f32) -> reimui::Vec2 {
         todo!("tell reimui how to measure your font");
     }
 }
@@ -43,12 +43,13 @@ fn draw() {
         // build a vertical layout
         ui.layout(LayoutDirection::Vertical, Some(25), false, |ui| {
             ui.text_layout("hi from reimui!".into());
+            ui.text_layout_scaled("big text".into(), 1.5);
 
             // make a new horizontal layout for the slider and value text
             ui.layout(LayoutDirection::Horizontal, Some(30), false, |ui| {
                 // draw our sliders
                 ui.slider_layout(BIG_SLIDER_SIZE, &mut self.slider_a_state);
-                ui.text_layout(format!("{}", self.slider_a_state.value));
+                ui.text_layout_scaled(format!("{}", self.slider_a_state.value), 0.8);
             });
         });
         let result = ui.end();

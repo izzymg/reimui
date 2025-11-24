@@ -23,8 +23,9 @@ impl RaylibFontInfo {
 }
 
 impl reimui::FontInformation for RaylibFontInfo {
-    fn compute_text_size(&self, text: &str) -> reimui::Vec2 {
-        let text_size = self.font.measure_text(text, self.font_size as f32, 1.0);
+    fn compute_text_size(&self, text: &str, scale: f32) -> reimui::Vec2 {
+        let font_size = self.font_size as f32 * scale;
+        let text_size = self.font.measure_text(text, font_size, 1.0);
         reimui::Vec2 {
             x: text_size.x.ceil() as u32,
             y: text_size.y.ceil() as u32,
@@ -112,12 +113,17 @@ pub fn apply_reimui_to_raylib(
 ) {
     for command in &ui_result.commands {
         match command {
-            reimui::DrawCommand::DrawText { content, draw_data } => {
+            reimui::DrawCommand::DrawText {
+                content,
+                draw_data,
+                text_scale,
+            } => {
+                let font_size = ((font_info.font_size as f32) * text_scale).max(1.0);
                 d.draw_text(
                     content,
                     draw_data.rect.top_left.x as i32,
                     draw_data.rect.top_left.y as i32,
-                    font_info.font_size,
+                    font_size.ceil() as i32,
                     color_palette(draw_data.role, draw_data.flags, draw_data.class_list),
                 );
             }
