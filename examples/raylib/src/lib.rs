@@ -1,6 +1,7 @@
 // Some common reimui -> raylib bindings
 use raylib::prelude::*;
 pub mod class_lists;
+pub mod checkbox;
 pub mod layouts;
 pub mod simple;
 pub mod slider;
@@ -70,6 +71,16 @@ pub fn color_palette(
         }
         reimui::UIDrawRole::SliderKnob => Color::BLUE,
         reimui::UIDrawRole::SliderRect => Color::GRAY,
+        reimui::UIDrawRole::CheckboxBox => {
+            if is_active {
+                Color::DARKGRAY
+            } else if is_hover {
+                Color::LIGHTGRAY
+            } else {
+                Color::GRAY
+            }
+        }
+        reimui::UIDrawRole::CheckboxCheck => Color::DARKBLUE,
         reimui::UIDrawRole::LayoutBackground => Color::GREEN,
     };
 

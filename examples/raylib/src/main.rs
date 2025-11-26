@@ -1,6 +1,6 @@
 use std::{env, process::ExitCode};
 
-use reimui_raylib_example::{class_lists, layouts, simple, slider, SampleUI};
+use reimui_raylib_example::{checkbox, class_lists, layouts, simple, slider, SampleUI};
 
 /// Simple example runner - actual code may be found inside the relevant file
 fn main() -> ExitCode {
@@ -25,6 +25,7 @@ fn main() -> ExitCode {
         "slider" => &mut slider::SliderUI::new(&rl),
         "layouts" => &mut layouts::LayoutsUI::new(&rl),
         "class_lists" => &mut class_lists::ClassListUI::new(&rl),
+        "checkbox" => &mut checkbox::CheckboxUI::new(&rl),
         other => {
             println!("unknown example type: '{}'", other);
             return ExitCode::FAILURE;

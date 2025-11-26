@@ -209,6 +209,8 @@ pub enum UIDrawRole {
     ButtonBackground,
     SliderRect,
     SliderKnob,
+    CheckboxBox,
+    CheckboxCheck,
     LayoutBackground,
 }
 
@@ -524,6 +526,57 @@ impl<'f> UIContext<'f> {
         let clicked = self.button_raw(layout.top_left, text_size, padding, label, scale);
         self.recompute_current_layout(Vec2::add(text_size, padding));
         clicked
+    }
+
+    /// Draws a checkbox at `top_left` with a given box `size`.
+    /// Returns true when the checkbox toggles, and mutates the caller-held `checked` value.
+    pub fn checkbox(&mut self, top_left: Vec2, size: Vec2, checked: &mut bool) -> bool {
+        let rect = Rect { top_left, size };
+
+        let hovered = self.check_set_hover(rect);
+        let active = self.is_active(rect);
+
+        let mut flags = flags::NONE;
+        if hovered {
+            flags |= flags::HOVER;
+        }
+        if active {
+            flags |= flags::ACTIVE;
+        }
+
+        let toggled = hovered && self.clicked_rect(rect);
+        if toggled {
+            *checked = !*checked;
+        }
+
+        self.rect_raw(rect, flags, UIDrawRole::CheckboxBox);
+
+        if *checked {
+            let inset = Vec2::new(size.x / 4, size.y / 4);
+            let check_top_left = Vec2::add(rect.top_left, inset);
+            let check_size = Vec2 {
+                x: size.x.saturating_sub(inset.x.saturating_mul(2)),
+                y: size.y.saturating_sub(inset.y.saturating_mul(2)),
+            };
+            self.rect_raw(
+                Rect {
+                    top_left: check_top_left,
+                    size: check_size,
+                },
+                flags,
+                UIDrawRole::CheckboxCheck,
+            );
+        }
+
+        toggled
+    }
+
+    /// Draws a checkbox using the current layout position.
+    pub fn checkbox_layout(&mut self, size: Vec2, checked: &mut bool) -> bool {
+        let layout = self.get_current_layout();
+        let toggled = self.checkbox(layout.top_left, size, checked);
+        self.recompute_current_layout(size);
+        toggled
     }
 
     pub fn slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
@@ -926,6 +979,51 @@ mod test {
         ctx.slider(rect, &mut slider_state);
         ctx.end();
         assert_eq!(slider_state.value, slider_state.min);
+    }
+
+    #[test]
+    fn checkbox_toggles_and_draws_check() {
+        let font_info = mock_font_info();
+        let rect = Rect {
+            top_left: Vec2 { x: 0, y: 0 },
+            size: Vec2 { x: 20, y: 20 },
+        };
+        let mut checked = false;
+
+        // press down over the box
+        let mut ctx = UIContext::new(
+            UIState::new(),
+            &font_info,
+            Vec2 { x: 10, y: 10 },
+            ButtonState::Down,
+        );
+        let toggled = ctx.checkbox(rect.top_left, rect.size, &mut checked);
+        assert!(!toggled);
+        assert!(!checked);
+        let state = ctx.end().new_state;
+
+        // release over the box should toggle
+        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 10, y: 10 }, ButtonState::Up);
+        let toggled = ctx.checkbox(rect.top_left, rect.size, &mut checked);
+        assert!(toggled);
+        assert!(checked);
+
+        // when checked, a check draw command is emitted after the box
+        assert_eq!(ctx.command_buffer.len(), 2);
+        match (&ctx.command_buffer[0], &ctx.command_buffer[1]) {
+            (
+                DrawCommand::DrawRect {
+                    draw_data: box_draw,
+                },
+                DrawCommand::DrawRect {
+                    draw_data: check_draw,
+                },
+            ) => {
+                assert_eq!(box_draw.role, UIDrawRole::CheckboxBox);
+                assert_eq!(check_draw.role, UIDrawRole::CheckboxCheck);
+            }
+            _ => panic!("expected two rectangle draws for checkbox"),
+        }
     }
 }
 
