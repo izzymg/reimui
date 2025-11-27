@@ -709,7 +709,7 @@ impl<'f> UIContext<'f> {
         if with_bg {
             let idx = self.rect_raw(
                 Rect {
-                    top_left: self.get_current_layout().top_left,
+                    top_left,
                     size: Vec2::zero(), // temp
                 },
                 flags::NONE,
@@ -867,6 +867,37 @@ mod test {
             assert_eq!(parent_after.size.x, child_layout.size.x);
             assert_eq!(parent_after.size.y, child_layout.size.y);
         });
+    }
+
+    #[test]
+    fn layout_at_uses_given_position_for_background() {
+        let font_info = mock_font_info();
+        let mut ctx =
+            super::UIContext::new(UIState::new(), &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
+
+        let layout_pos = Vec2 { x: 20, y: 30 };
+        ctx.layout_at(
+            layout_pos,
+            LayoutDirection::Vertical,
+            2,
+            true,
+            |ctx| ctx.text_layout("abc".into()),
+        );
+
+        assert_eq!(ctx.command_buffer.len(), 2);
+        match &ctx.command_buffer[0] {
+            DrawCommand::DrawRect { draw_data } => {
+                assert_eq!(draw_data.rect.top_left, layout_pos);
+                assert_eq!(
+                    draw_data.rect.size,
+                    Vec2 {
+                        x: MOCK_TEXT_WIDTH * 3,
+                        y: MOCK_TEXT_HEIGHT
+                    }
+                );
+            }
+            _ => panic!("expected layout background to be a rect draw"),
+        }
     }
 
     #[test]
