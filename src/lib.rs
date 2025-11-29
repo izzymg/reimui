@@ -269,6 +269,10 @@ impl UIState {
             focused: None,
         }
     }
+
+    pub fn focused_rect(&self) -> Option<Rect> {
+        self.focused
+    }
 }
 
 /// Result of a computation of the UI
@@ -484,7 +488,7 @@ impl<'f> UIContext<'f> {
             text_scale,
         );
 
-        hovered && self.clicked_rect(rect)
+        (hovered || focused) && self.clicked_rect(rect)
     }
 
     fn is_active(&self, rect: Rect) -> bool {
@@ -566,6 +570,7 @@ impl<'f> UIContext<'f> {
 
         let hovered = self.check_set_hover(rect);
         let active = self.is_active(rect);
+        let focused = self.register_focusable(rect);
 
         let mut flags = flags::NONE;
         if hovered {
@@ -574,8 +579,11 @@ impl<'f> UIContext<'f> {
         if active {
             flags |= flags::ACTIVE;
         }
+        if focused {
+            flags |= flags::FOCUSED;
+        }
 
-        let toggled = hovered && self.clicked_rect(rect);
+        let toggled = (hovered || focused) && self.clicked_rect(rect);
         if toggled {
             *checked = !*checked;
         }
@@ -795,12 +803,13 @@ impl<'f> UIContext<'f> {
 
     /// Finalize the computation of the UI and return the resulting state and draw info
     pub fn end(mut self) -> UIResult {
-        // mouse down over hover => active
+        // mouse/key down over hover/focus => active
         if self.input_state.activate_button == ButtonState::Down {
-            if self.state.active_rect != self.hover_rect {
+            let target_rect = self.hover_rect.or(self.state.focused);
+            if self.state.active_rect != target_rect {
                 self.state.active_drag_amt = 0.0;
             }
-            self.state.active_rect = self.hover_rect;
+            self.state.active_rect = target_rect;
         } else {
             self.state.active_rect = None;
             self.state.active_drag_amt = 0.0;
@@ -1020,6 +1029,57 @@ mod test {
             !clicked,
             "button should not register click on mouse up outside"
         );
+    }
+
+    #[test]
+    fn enter_key_activates_focused_button() {
+        let font_info = mock_font_info();
+        let button_padding = Vec2::zero();
+        let button_pos = Vec2::zero();
+        let mouse_far = Vec2 { x: 999, y: 999 };
+
+        // focus the button
+        let mut ctx = super::UIContext::new(
+            UIState::new(),
+            &font_info,
+            UIInputState {
+                focus_next_button: ButtonState::Down,
+                mouse_position: mouse_far,
+                ..Default::default()
+            },
+        );
+        ctx.button(button_pos, button_padding, "A".into());
+        let result = ctx.end();
+
+        // key down should mark it active but not click yet
+        let mut ctx = super::UIContext::new(
+            result.new_state,
+            &font_info,
+            UIInputState {
+                activate_button: ButtonState::Down,
+                mouse_position: mouse_far,
+                ..Default::default()
+            },
+        );
+        let clicked = ctx.button(button_pos, button_padding, "A".into());
+        assert!(
+            !clicked,
+            "activate key down alone should not register a click"
+        );
+        let state = ctx.end().new_state;
+
+        // releasing the key should click the focused button even without hover
+        let mut ctx = super::UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                activate_button: ButtonState::Up,
+                mouse_position: mouse_far,
+                ..Default::default()
+            },
+        );
+        let clicked = ctx.button(button_pos, button_padding, "A".into());
+        assert!(clicked, "activate key up should click the focused button");
     }
 
     #[test]

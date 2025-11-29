@@ -51,7 +51,7 @@ impl CheckboxUI {
     }
 
     pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        let input_state = raylib_input_state(rl);
+        let input_state = raylib_input_state(rl, &self.ui_state);
         let ui_result = self.do_reimui(input_state);
 
         let mut d = rl.begin_drawing(thread);

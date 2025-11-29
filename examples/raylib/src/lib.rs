@@ -159,7 +159,10 @@ pub fn apply_reimui_to_raylib(
 }
 
 /// Collect the raylib input state and map it into reimui's expected input format.
-pub fn raylib_input_state(rl: &mut RaylibHandle) -> reimui::UIInputState {
+pub fn raylib_input_state(
+    rl: &mut RaylibHandle,
+    ui_state: &reimui::UIState,
+) -> reimui::UIInputState {
     let mouse = rl.get_mouse_position();
     let activate_button = if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
         reimui::ButtonState::Down
@@ -167,7 +170,7 @@ pub fn raylib_input_state(rl: &mut RaylibHandle) -> reimui::UIInputState {
         reimui::ButtonState::Up
     };
 
-    reimui::UIInputState {
+    let mut input = reimui::UIInputState {
         mouse_position: reimui::Vec2 {
             x: mouse.x.max(0.0) as u32,
             y: mouse.y.max(0.0) as u32,
@@ -178,5 +181,15 @@ pub fn raylib_input_state(rl: &mut RaylibHandle) -> reimui::UIInputState {
         } else {
             reimui::ButtonState::Up
         },
+    };
+
+    // Allow pressing enter to "click" the currently focused control.
+    if rl.is_key_pressed(KeyboardKey::KEY_ENTER) || rl.is_key_pressed(KeyboardKey::KEY_KP_ENTER) {
+        if let Some(focused_rect) = ui_state.focused_rect() {
+            input.mouse_position = focused_rect.top_left;
+            input.activate_button = reimui::ButtonState::Down;
+        }
     }
+
+    input
 }
