@@ -64,11 +64,7 @@ impl LayoutsUI {
                     |ui| {
                         if ui.button_layout(
                             BUTTON_PADDING,
-                            if self.show_layouts {
-                                "Hide layouts".into()
-                            } else {
-                                "Show layouts".into()
-                            },
+                            "Toggle layouts".into()
                         ) {
                             self.show_layouts = !self.show_layouts;
                         }
