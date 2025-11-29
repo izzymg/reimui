@@ -1,7 +1,7 @@
 // Some common reimui -> raylib bindings
 use raylib::prelude::*;
-pub mod class_lists;
 pub mod checkbox;
+pub mod class_lists;
 pub mod layouts;
 pub mod simple;
 pub mod slider;
@@ -72,11 +72,13 @@ pub fn color_palette(
                 Color::BLACK
             }
         }
-        reimui::UIDrawRole::SliderKnob => if is_focus {
-            Color::DARKBLUE
-        } else {
-            Color::BLUE
-        },
+        reimui::UIDrawRole::SliderKnob => {
+            if is_focus {
+                Color::DARKBLUE
+            } else {
+                Color::BLUE
+            }
+        }
         reimui::UIDrawRole::SliderRect => Color::GRAY,
         reimui::UIDrawRole::CheckboxBox => {
             if is_active {
@@ -95,7 +97,10 @@ pub fn color_palette(
         color = Color::LIGHTGRAY;
     }
 
-    if matches!(role, reimui::UIDrawRole::Text | reimui::UIDrawRole::ButtonText) {
+    if matches!(
+        role,
+        reimui::UIDrawRole::Text | reimui::UIDrawRole::ButtonText
+    ) {
         if has_class("muted") {
             color = Color::DARKGRAY;
         }

@@ -33,7 +33,10 @@ impl CheckboxUI {
 
             ui.layout(LayoutDirection::Horizontal, Some(10), false, |ui| {
                 ui.checkbox_layout(CHECKBOX_SIZE, &mut self.music_on);
-                ui.text_layout(format!("Music {}", if self.music_on { "on" } else { "off" }));
+                ui.text_layout(format!(
+                    "Music {}",
+                    if self.music_on { "on" } else { "off" }
+                ));
             });
 
             ui.layout(LayoutDirection::Horizontal, Some(10), false, |ui| {

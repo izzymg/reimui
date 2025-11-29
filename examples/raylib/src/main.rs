@@ -1,6 +1,6 @@
 use std::{env, process::ExitCode};
 
-use reimui_raylib_example::{checkbox, class_lists, layouts, simple, slider, SampleUI};
+use reimui_raylib_example::{SampleUI, checkbox, class_lists, layouts, simple, slider};
 
 /// Simple example runner - actual code may be found inside the relevant file
 fn main() -> ExitCode {

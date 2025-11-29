@@ -1101,10 +1101,7 @@ mod test {
         ctx.button(first_button_pos, button_padding, "A".into());
         ctx.button(second_button_pos, button_padding, "B".into());
         let result = ctx.end();
-        assert_eq!(
-            result.new_state.focused.unwrap().top_left,
-            first_button_pos
-        );
+        assert_eq!(result.new_state.focused.unwrap().top_left, first_button_pos);
 
         // next press should advance to the next focusable
         let mut ctx = super::UIContext::new(
@@ -1135,10 +1132,7 @@ mod test {
         ctx.button(first_button_pos, button_padding, "A".into());
         ctx.button(second_button_pos, button_padding, "B".into());
         let result = ctx.end();
-        assert_eq!(
-            result.new_state.focused.unwrap().top_left,
-            first_button_pos
-        );
+        assert_eq!(result.new_state.focused.unwrap().top_left, first_button_pos);
     }
 
     #[test]

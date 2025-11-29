@@ -1,6 +1,6 @@
 use raylib::prelude::*;
-use reimui::prelude::*;
 use reimui::ClassList;
+use reimui::prelude::*;
 
 use crate::*;
 
