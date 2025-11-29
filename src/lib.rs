@@ -69,6 +69,7 @@ pub struct Vec2 {
     pub y: u32,
 }
 
+#[allow(clippy::should_implement_trait, reason = "No operator overloading")]
 impl Vec2 {
     pub const fn new(x: u32, y: u32) -> Self {
         Self { x, y }
@@ -92,7 +93,8 @@ impl Vec2 {
         }
     }
 
-    pub fn div(a: Vec2, b: u32) -> Self {
+    /// Component-wise division
+    pub fn div_cmp(a: Vec2, b: u32) -> Self {
         Vec2 {
             x: a.x / b,
             y: a.y / b,
@@ -238,10 +240,6 @@ impl ClassList {
 impl PartialEq for ClassList {
     fn eq(&self, other: &Self) -> bool {
         self.classes.eq(other.classes)
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.classes.ne(other.classes)
     }
 }
 
@@ -473,7 +471,7 @@ impl<'f> UIContext<'f> {
             flags |= flags::FOCUSED;
         }
 
-        let half_padding = Vec2::div(Vec2::sub(rect.size, text_size), 2);
+        let half_padding = Vec2::div_cmp(Vec2::sub(rect.size, text_size), 2);
         let centered_text_pos = Vec2::add(rect.top_left, half_padding);
 
         self.rect_raw(rect, flags, UIDrawRole::ButtonBackground);
@@ -656,7 +654,7 @@ impl<'f> UIContext<'f> {
                     }
 
                     // keep remainder of drag
-                    self.state.active_drag_amt -= (steps as f32) * pixels_per_step;
+                    self.state.active_drag_amt -= steps * pixels_per_step;
                 }
             } else {
                 // increment once on any drag
@@ -766,8 +764,8 @@ impl<'f> UIContext<'f> {
         self.layout_stack.push(Layout {
             direction,
             size: Vec2::zero(),
-            spacing: spacing,
-            top_left: top_left,
+            spacing,
+            top_left,
         });
         // do the draw, then pop the layout off and recompute the prev layout
         let ret = draw(self);
