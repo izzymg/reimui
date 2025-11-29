@@ -26,7 +26,12 @@ impl CheckboxUI {
 
     /// Build reimui UI frame
     fn do_reimui(&mut self, mouse_position: Vec2, mouse_state: ButtonState) -> reimui::UIResult {
-        let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
+                           let input_state = reimui::UIInputState {
+            mouse_position,
+            activate_button: mouse_state,
+            ..Default::default()
+        };
+        let mut ui = UIContext::new(self.ui_state, &self.font_info, input_state);
 
         ui.layout(LayoutDirection::Vertical, Some(SPACING), false, |ui| {
             ui.text_layout("Checkboxes".into());

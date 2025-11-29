@@ -5,7 +5,8 @@ use std::{collections::VecDeque, ops::Range};
 
 pub mod prelude {
     pub use super::{
-        ButtonState, FontInformation, Layout, LayoutDirection, Rect, UIContext, UIState, Vec2,
+        ButtonState, FontInformation, Layout, LayoutDirection, Rect, UIContext, UIDrawRole,
+        UIInputState, UIState, Vec2,
     };
 }
 
@@ -16,6 +17,7 @@ pub mod flags {
     pub const HOVER: Flags          = 1 << 0;
     pub const DISABLED: Flags       = 1 << 1;
     pub const ACTIVE: Flags         = 1 << 2;
+    pub const FOCUSED: Flags        = 1 << 2;
 }
 
 /// Something that can be used as a slider value.
@@ -249,6 +251,7 @@ pub struct UIState {
     active_rect: Option<Rect>,
     last_mouse_position: Vec2,
     active_drag_amt: f32,
+    focused: Option<Rect>,
 }
 
 impl Default for UIState {
@@ -263,6 +266,7 @@ impl UIState {
             active_rect: None,
             last_mouse_position: Vec2::zero(),
             active_drag_amt: 0.0,
+            focused: None,
         }
     }
 }
@@ -273,12 +277,31 @@ pub struct UIResult {
     pub commands: Vec<DrawCommand>,
 }
 
+/// Tell reimui what's going on with your user's physical inputs
+pub struct UIInputState {
+    /// 0,0 top left
+    pub mouse_position: Vec2,
+
+    pub activate_button: ButtonState,
+    pub focus_next_button: ButtonState,
+}
+
+impl Default for UIInputState {
+    /// All buttons up, mouse at 0,0
+    fn default() -> Self {
+        Self {
+            mouse_position: Vec2::zero(),
+            activate_button: ButtonState::Up,
+            focus_next_button: ButtonState::Up,
+        }
+    }
+}
+
 /// Transient draw context
 pub struct UIContext<'f> {
     state: UIState,
     font_info: &'f dyn FontInformation,
-    mouse_position: Vec2,
-    mouse_primary_button: ButtonState,
+    input_state: UIInputState,
 
     hover_rect: Option<Rect>,
 
@@ -287,14 +310,15 @@ pub struct UIContext<'f> {
     layout_stack: Vec<Layout>,
 
     next_class: Option<ClassList>,
+
+    focusables: Vec<Rect>,
 }
 
 impl<'f> UIContext<'f> {
     pub fn new(
         state: UIState,
         font_info: &'f dyn FontInformation,
-        mouse_position: Vec2,
-        mouse_primary_button: ButtonState,
+        input_state: UIInputState,
     ) -> Self {
         let initial_layout_stack = vec![Layout::new(
             LayoutDirection::Horizontal,
@@ -305,22 +329,20 @@ impl<'f> UIContext<'f> {
 
         Self {
             command_buffer: VecDeque::new(),
-            mouse_position,
-            mouse_primary_button,
+            input_state,
             hover_rect: None,
             state,
             font_info,
             layout_stack: initial_layout_stack,
             next_class: None,
+            focusables: vec![],
         }
     }
 
     pub fn new_layout_init(
         state: UIState,
         font_info: &'f dyn FontInformation,
-        mouse_position: Vec2,
-        mouse_primary_button: ButtonState,
-
+        input_state: UIInputState,
         position: Vec2,
         spacing: u32,
     ) -> Self {
@@ -333,13 +355,13 @@ impl<'f> UIContext<'f> {
 
         Self {
             command_buffer: VecDeque::new(),
-            mouse_position,
-            mouse_primary_button,
+            input_state,
             hover_rect: None,
             state,
             font_info,
             layout_stack: initial_layout_stack,
             next_class: None,
+            focusables: vec![],
         }
     }
 
@@ -354,6 +376,11 @@ impl<'f> UIContext<'f> {
             .last_mut()
             .expect("compute layout: should always have a root layout")
             .recompute(size);
+    }
+
+    pub fn register_focusable(&mut self, rect: Rect) -> bool {
+        self.focusables.push(rect);
+        self.state.focused.is_some_and(|r| r == rect)
     }
 
     /// Sets the classlist used for all draws to `class_list`.
@@ -429,6 +456,7 @@ impl<'f> UIContext<'f> {
 
         let hovered = self.check_set_hover(rect);
         let active = self.is_active(rect);
+        let focused = self.register_focusable(rect);
 
         let mut flags = flags::NONE;
         if hovered {
@@ -436,6 +464,9 @@ impl<'f> UIContext<'f> {
         }
         if active {
             flags |= flags::ACTIVE;
+        }
+        if focused {
+            flags |= flags::FOCUSED;
         }
 
         let half_padding = Vec2::div(Vec2::sub(rect.size, text_size), 2);
@@ -463,11 +494,11 @@ impl<'f> UIContext<'f> {
     }
 
     fn clicked_rect(&self, rect: Rect) -> bool {
-        self.mouse_primary_button == ButtonState::Up && self.is_active(rect)
+        self.input_state.activate_button == ButtonState::Up && self.is_active(rect)
     }
 
     fn check_set_hover(&mut self, rect: Rect) -> bool {
-        let is_hover = rect.contains(self.mouse_position);
+        let is_hover = rect.contains(self.input_state.mouse_position);
         if is_hover {
             self.hover_rect = Some(rect);
         }
@@ -582,6 +613,7 @@ impl<'f> UIContext<'f> {
     pub fn slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
         let hovered = self.check_set_hover(rect);
         let is_active = self.is_active(rect);
+        let focused = self.register_focusable(rect);
         let knob_size = Vec2::new(10, rect.size.y);
 
         // by how many pixels does each step of the slider correspond to
@@ -594,7 +626,8 @@ impl<'f> UIContext<'f> {
 
         if is_active {
             // build drag value over this draw
-            let delta_x = self.mouse_position.x as f32 - self.state.last_mouse_position.x as f32;
+            let delta_x =
+                self.input_state.mouse_position.x as f32 - self.state.last_mouse_position.x as f32;
             self.state.active_drag_amt += delta_x;
 
             if pixels_per_step > 0.0 {
@@ -633,6 +666,9 @@ impl<'f> UIContext<'f> {
         let mut flags = flags::NONE;
         if hovered {
             flags |= flags::HOVER;
+        }
+        if focused {
+            flags |= flags::FOCUSED;
         }
 
         // move the knob by the percentage it is into the slider rect
@@ -760,7 +796,7 @@ impl<'f> UIContext<'f> {
     /// Finalize the computation of the UI and return the resulting state and draw info
     pub fn end(mut self) -> UIResult {
         // mouse down over hover => active
-        if self.mouse_primary_button == ButtonState::Down {
+        if self.input_state.activate_button == ButtonState::Down {
             if self.state.active_rect != self.hover_rect {
                 self.state.active_drag_amt = 0.0;
             }
@@ -770,7 +806,23 @@ impl<'f> UIContext<'f> {
             self.state.active_drag_amt = 0.0;
         }
 
-        self.state.last_mouse_position = self.mouse_position;
+        // figure out what the next thing to focus is
+        if self.input_state.focus_next_button == ButtonState::Down {
+            // if we had something focused, we find the next one
+            if let Some(prev_focus_rect) = self.state.focused {
+                let next_idx = self
+                    .focusables
+                    .iter()
+                    .copied()
+                    .position(|r| r == prev_focus_rect)
+                    .map(|p| p + 1)
+                    .unwrap_or_default();
+                let next_rect = self.focusables.get(next_idx).copied();
+                self.state.focused = next_rect;
+            }
+        }
+
+        self.state.last_mouse_position = self.input_state.mouse_position;
         UIResult {
             new_state: self.state,
             commands: self.command_buffer.into(),
@@ -804,10 +856,15 @@ mod test {
     fn layout() {
         const SECTION_TEXT_LEN: u32 = 9;
 
+        let input_state = UIInputState {
+            activate_button: ButtonState::Up,
+            focus_next_button: ButtonState::Up,
+            mouse_position: Vec2::zero(),
+        };
+
         let font_info = mock_font_info();
         let ui_state = UIState::new();
-        let mut ctx =
-            super::UIContext::new(ui_state, &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
+        let mut ctx = super::UIContext::new(ui_state, &font_info, input_state);
         // draw a horizontal group of texts, each with a vertical layout of text inside
         ctx.layout(LayoutDirection::Horizontal, Some(4), false, |ctx| {
             let main_layout = *ctx.get_current_layout();
@@ -845,8 +902,7 @@ mod test {
     fn nested_layout_size_propagates() {
         let font_info = mock_font_info();
         let ui_state = UIState::new();
-        let mut ctx =
-            super::UIContext::new(ui_state, &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
+        let mut ctx = super::UIContext::new(ui_state, &font_info, UIInputState::default());
 
         ctx.layout(LayoutDirection::Horizontal, Some(4), false, |ctx| {
             let parent_before = *ctx.get_current_layout();
@@ -872,17 +928,12 @@ mod test {
     #[test]
     fn layout_at_uses_given_position_for_background() {
         let font_info = mock_font_info();
-        let mut ctx =
-            super::UIContext::new(UIState::new(), &font_info, Vec2 { x: 0, y: 0 }, ButtonState::Up);
+        let mut ctx = super::UIContext::new(UIState::new(), &font_info, UIInputState::default());
 
         let layout_pos = Vec2 { x: 20, y: 30 };
-        ctx.layout_at(
-            layout_pos,
-            LayoutDirection::Vertical,
-            2,
-            true,
-            |ctx| ctx.text_layout("abc".into()),
-        );
+        ctx.layout_at(layout_pos, LayoutDirection::Vertical, 2, true, |ctx| {
+            ctx.text_layout("abc".into())
+        });
 
         assert_eq!(ctx.command_buffer.len(), 2);
         match &ctx.command_buffer[0] {
@@ -909,8 +960,10 @@ mod test {
         let mut ctx = super::UIContext::new(
             ui_state,
             &font_info,
-            Vec2 { x: 10, y: 10 },
-            ButtonState::Down,
+            UIInputState {
+                activate_button: ButtonState::Down,
+                ..Default::default()
+            },
         );
         let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(!clicked, "button should not register click on mouse down");
@@ -920,8 +973,10 @@ mod test {
         let mut ctx = super::UIContext::new(
             result.new_state,
             &font_info,
-            Vec2 { x: 10, y: 10 },
-            ButtonState::Up,
+            UIInputState {
+                activate_button: ButtonState::Up,
+                ..Default::default()
+            },
         );
         let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(clicked, "button should register click on mouse up");
@@ -932,13 +987,14 @@ mod test {
         let font_info = mock_font_info();
         let ui_state = UIState::new();
 
+        let input_state = UIInputState {
+            mouse_position: Vec2 { x: 100, y: 100 },
+            activate_button: ButtonState::Down,
+            ..Default::default()
+        };
+
         // first frame: mouse down outside button
-        let mut ctx = super::UIContext::new(
-            ui_state,
-            &font_info,
-            Vec2 { x: 100, y: 100 },
-            ButtonState::Down,
-        );
+        let mut ctx = super::UIContext::new(ui_state, &font_info, input_state);
         let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(
             !clicked,
@@ -946,13 +1002,13 @@ mod test {
         );
         let result = ctx.end();
 
+        let input_state = UIInputState {
+            mouse_position: Vec2 { x: 100, y: 100 },
+            ..Default::default()
+        };
+
         // second frame: mouse up outside button
-        let mut ctx = super::UIContext::new(
-            result.new_state,
-            &font_info,
-            Vec2 { x: 100, y: 100 },
-            ButtonState::Up,
-        );
+        let mut ctx = super::UIContext::new(result.new_state, &font_info, input_state);
         let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
         assert!(
             !clicked,
@@ -969,44 +1025,94 @@ mod test {
         };
         let mut slider_state = SliderState::new(0_u32, 10_u32, 5_u32, 1_u32);
 
+        let input_state = UIInputState {
+            mouse_position: Vec2 { x: 10, y: 6 },
+            activate_button: ButtonState::Down,
+            ..Default::default()
+        };
+
         // prime the slider to become active
-        let mut ctx = UIContext::new(
-            UIState::new(),
-            &font_info,
-            Vec2 { x: 10, y: 6 },
-            ButtonState::Down,
-        );
+        let mut ctx = UIContext::new(UIState::new(), &font_info, input_state);
         ctx.slider(rect, &mut slider_state);
         let mut state = ctx.end().new_state;
 
         // small motions should not cause a step yet
-        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 14, y: 6 }, ButtonState::Down);
+        let mut ctx = UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                mouse_position: Vec2::new(14, 6),
+                activate_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
         ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
         assert_eq!(slider_state.value, 5);
 
         // accumulate enough motion to register a single step
-        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 20, y: 6 }, ButtonState::Down);
+
+        let mut ctx = UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                mouse_position: Vec2::new(20, 6),
+                activate_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
         ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
         assert_eq!(slider_state.value, 6);
 
         // moving left far enough should decrease value once
-        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 5, y: 6 }, ButtonState::Down);
+        let mut ctx = UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                mouse_position: Vec2 { x: 5, y: 6 },
+                activate_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
         ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
         assert_eq!(slider_state.value, 5);
 
         // release to reset the drag accumulator
-        let ctx = UIContext::new(state, &font_info, Vec2 { x: 5, y: 6 }, ButtonState::Up);
+        let ctx = UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                mouse_position: Vec2 { x: 5, y: 6 },
+                activate_button: ButtonState::Up,
+                ..Default::default()
+            },
+        );
         state = ctx.end().new_state;
 
         // large step decrease should clamp to the minimum without crashing
         slider_state.step = 10;
-        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 90, y: 6 }, ButtonState::Down);
+        let mut ctx = UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                mouse_position: Vec2 { x: 90, y: 6 },
+                activate_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
         ctx.slider(rect, &mut slider_state);
         state = ctx.end().new_state;
-        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 0, y: 6 }, ButtonState::Down);
+        let mut ctx = UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                mouse_position: Vec2 { x: 0, y: 6 },
+                activate_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
         ctx.slider(rect, &mut slider_state);
         ctx.end();
         assert_eq!(slider_state.value, slider_state.min);
@@ -1025,8 +1131,11 @@ mod test {
         let mut ctx = UIContext::new(
             UIState::new(),
             &font_info,
-            Vec2 { x: 10, y: 10 },
-            ButtonState::Down,
+            UIInputState {
+                mouse_position: Vec2 { x: 10, y: 10 },
+                activate_button: ButtonState::Down,
+                ..Default::default()
+            },
         );
         let toggled = ctx.checkbox(rect.top_left, rect.size, &mut checked);
         assert!(!toggled);
@@ -1034,7 +1143,15 @@ mod test {
         let state = ctx.end().new_state;
 
         // release over the box should toggle
-        let mut ctx = UIContext::new(state, &font_info, Vec2 { x: 10, y: 10 }, ButtonState::Up);
+        let mut ctx = UIContext::new(
+            state,
+            &font_info,
+            UIInputState {
+                mouse_position: Vec2 { x: 10, y: 10 },
+                activate_button: ButtonState::Up,
+                ..Default::default()
+            },
+        );
         let toggled = ctx.checkbox(rect.top_left, rect.size, &mut checked);
         assert!(toggled);
         assert!(checked);

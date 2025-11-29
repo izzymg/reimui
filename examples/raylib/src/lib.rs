@@ -42,6 +42,7 @@ pub fn color_palette(
 ) -> Color {
     let is_active = flags & reimui::flags::ACTIVE != 0;
     let is_hover = flags & reimui::flags::HOVER != 0;
+    let is_focus = flags & reimui::flags::FOCUSED != 0;
     let has_class = |tag: &'static str| class_list.is_some_and(|cls| cls.has(tag));
     let mut color = match role {
         reimui::UIDrawRole::Text => {
@@ -58,6 +59,8 @@ pub fn color_palette(
                 Color::DARKBLUE
             } else if is_hover {
                 Color::LIGHTBLUE
+            } else if is_focus {
+                Color::BLUE
             } else {
                 Color::BLUEVIOLET
             }
@@ -69,7 +72,11 @@ pub fn color_palette(
                 Color::BLACK
             }
         }
-        reimui::UIDrawRole::SliderKnob => Color::BLUE,
+        reimui::UIDrawRole::SliderKnob => if is_focus {
+            Color::DARKBLUE
+        } else {
+            Color::BLUE
+        },
         reimui::UIDrawRole::SliderRect => Color::GRAY,
         reimui::UIDrawRole::CheckboxBox => {
             if is_active {
