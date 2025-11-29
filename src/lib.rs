@@ -520,6 +520,22 @@ impl<'f> UIContext<'f> {
         self.text_layout_scaled(label, 1.0);
     }
 
+    pub fn text_at(&mut self, label: String, position: Vec2) {
+        let text_size = self.font_info.compute_text_size(&label, 1.0);
+        self.text(label, Rect {
+            size: text_size,
+            top_left: position
+        })
+    }
+
+    pub fn text_at_scaled(&mut self, label: String, position: Vec2, scale: f32) {
+        let text_size = self.font_info.compute_text_size(&label, scale);
+        self.text(label, Rect {
+            size: text_size,
+            top_left: position
+        })
+    }
+
     pub fn text_layout_scaled(&mut self, label: String, scale: f32) {
         let layout = self.get_current_layout();
         let text_size = self.font_info.compute_text_size(&label, scale);

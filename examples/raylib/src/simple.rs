@@ -25,6 +25,10 @@ impl SimpleUI {
     fn do_reimui(&mut self, input_state: reimui::UIInputState) -> reimui::UIResult {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, input_state);
 
+        // put some text somewhere specific
+        let pos = Vec2::new(364, 298);
+        ui.text_at_scaled(format!("I'm at {}, {}", pos.x, pos.y), pos, 1.5);
+
         // build a simple vertical layout
         ui.layout(LayoutDirection::Vertical, Some(25), false, |ui| {
             ui.text_layout_scaled("reimui + raylib".into(), 5.0);
