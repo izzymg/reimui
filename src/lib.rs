@@ -817,8 +817,14 @@ impl<'f> UIContext<'f> {
                     .position(|r| r == prev_focus_rect)
                     .map(|p| p + 1)
                     .unwrap_or_default();
-                let next_rect = self.focusables.get(next_idx).copied();
+                let next_rect = self
+                    .focusables
+                    .get(next_idx)
+                    .or_else(|| self.focusables.first())
+                    .copied();
                 self.state.focused = next_rect;
+            } else {
+                self.state.focused = self.focusables.first().copied();
             }
         }
 
@@ -1013,6 +1019,65 @@ mod test {
         assert!(
             !clicked,
             "button should not register click on mouse up outside"
+        );
+    }
+
+    #[test]
+    fn tab_focus_advances_through_focusables() {
+        let font_info = mock_font_info();
+        let button_padding = Vec2::zero();
+        let first_button_pos = Vec2::zero();
+        let second_button_pos = Vec2 { x: 50, y: 0 };
+
+        // first tab press should focus the first registered control
+        let mut ctx = super::UIContext::new(
+            UIState::new(),
+            &font_info,
+            UIInputState {
+                focus_next_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
+        ctx.button(first_button_pos, button_padding, "A".into());
+        ctx.button(second_button_pos, button_padding, "B".into());
+        let result = ctx.end();
+        assert_eq!(
+            result.new_state.focused.unwrap().top_left,
+            first_button_pos
+        );
+
+        // next press should advance to the next focusable
+        let mut ctx = super::UIContext::new(
+            result.new_state,
+            &font_info,
+            UIInputState {
+                focus_next_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
+        ctx.button(first_button_pos, button_padding, "A".into());
+        ctx.button(second_button_pos, button_padding, "B".into());
+        let result = ctx.end();
+        assert_eq!(
+            result.new_state.focused.unwrap().top_left,
+            second_button_pos
+        );
+
+        // pressing again should wrap back to the first
+        let mut ctx = super::UIContext::new(
+            result.new_state,
+            &font_info,
+            UIInputState {
+                focus_next_button: ButtonState::Down,
+                ..Default::default()
+            },
+        );
+        ctx.button(first_button_pos, button_padding, "A".into());
+        ctx.button(second_button_pos, button_padding, "B".into());
+        let result = ctx.end();
+        assert_eq!(
+            result.new_state.focused.unwrap().top_left,
+            first_button_pos
         );
     }
 

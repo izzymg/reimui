@@ -157,3 +157,26 @@ pub fn apply_reimui_to_raylib(
         }
     }
 }
+
+/// Collect the raylib input state and map it into reimui's expected input format.
+pub fn raylib_input_state(rl: &mut RaylibHandle) -> reimui::UIInputState {
+    let mouse = rl.get_mouse_position();
+    let activate_button = if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
+        reimui::ButtonState::Down
+    } else {
+        reimui::ButtonState::Up
+    };
+
+    reimui::UIInputState {
+        mouse_position: reimui::Vec2 {
+            x: mouse.x.max(0.0) as u32,
+            y: mouse.y.max(0.0) as u32,
+        },
+        activate_button,
+        focus_next_button: if rl.is_key_pressed(KeyboardKey::KEY_TAB) {
+            reimui::ButtonState::Down
+        } else {
+            reimui::ButtonState::Up
+        },
+    }
+}

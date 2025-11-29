@@ -22,12 +22,7 @@ impl SimpleUI {
     }
 
     /// Build reimui UI frame
-    fn do_reimui(&mut self, mouse_position: Vec2, mouse_state: ButtonState) -> reimui::UIResult {
-        let input_state = reimui::UIInputState {
-            mouse_position,
-            activate_button: mouse_state,
-            ..Default::default()
-        };
+    fn do_reimui(&mut self, input_state: reimui::UIInputState) -> reimui::UIResult {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, input_state);
 
         // build a simple vertical layout
@@ -48,20 +43,8 @@ impl SimpleUI {
     }
 
     pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        let mouse = rl.get_mouse_position();
-        let mouse_state = if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
-            ButtonState::Down
-        } else {
-            ButtonState::Up
-        };
-
-        let ui_result = self.do_reimui(
-            Vec2 {
-                x: mouse.x.max(0.0) as u32,
-                y: mouse.y.max(0.0) as u32,
-            },
-            mouse_state,
-        );
+        let input_state = raylib_input_state(rl);
+        let ui_result = self.do_reimui(input_state);
 
         let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
