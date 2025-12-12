@@ -539,10 +539,10 @@ impl<'f> UIContext<'f> {
 
     pub fn text_at_scaled(&mut self, label: String, position: Vec2, scale: f32) -> Vec2 {
         let text_size = self.font_info.compute_text_size(&label, scale);
-        self.text(label, Rect {
+        self.text_scaled(label, Rect {
             size: text_size,
             top_left: position
-        });
+        }, scale);
         text_size
     }
 
