@@ -11,6 +11,7 @@ pub struct CheckboxUI {
     ui_state: reimui::UIState,
     font_info: RaylibFontInfo,
     music_on: bool,
+    sfx_on: bool,
     show_debug: bool,
 }
 
@@ -20,6 +21,7 @@ impl CheckboxUI {
             ui_state: reimui::UIState::new(),
             font_info: RaylibFontInfo::new(rl),
             music_on: true,
+            sfx_on: false,
             show_debug: false,
         }
     }
@@ -40,11 +42,11 @@ impl CheckboxUI {
             });
 
             ui.layout(LayoutDirection::Horizontal, Some(10), false, |ui| {
-                ui.checkbox_layout(CHECKBOX_SIZE, &mut self.show_debug);
-                ui.text_layout(format!(
-                    "Debug overlay {}",
-                    if self.show_debug { "shown" } else { "hidden" }
-                ));
+                let str = format!(
+                    "SFX {}",
+                    if self.sfx_on { "on" } else { "off" }
+                );
+                ui.checkbox_layout_label_right(CHECKBOX_SIZE, &mut self.sfx_on, str.to_string(), 1.0);
             });
         });
 

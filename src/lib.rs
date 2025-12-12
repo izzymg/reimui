@@ -662,6 +662,21 @@ impl<'f> UIContext<'f> {
         })
     }
 
+    /// Draws a checkbox using the current layout, and `label` centered on the right.
+    pub fn checkbox_layout_label_right(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32) -> bool {
+        self.layout(LayoutDirection::Horizontal, None, false, |ui| {
+            let interacted = ui.checkbox_layout(size, checked);
+
+            let layout = *ui.get_current_layout();
+            // add half the size y to center the text
+            let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, size.y / 4));
+            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
+            ui.recompute_current_layout(text_size);
+            
+            interacted.interacted
+        })
+    }
+
     pub fn slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
         let hovered = self.check_set_hover(rect);
         let is_active = self.is_active(rect);
