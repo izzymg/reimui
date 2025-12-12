@@ -32,11 +32,11 @@ impl CheckboxUI {
             ui.text_layout("Checkboxes".into());
 
             ui.layout(LayoutDirection::Horizontal, Some(10), false, |ui| {
-                ui.checkbox_layout(CHECKBOX_SIZE, &mut self.music_on);
-                ui.text_layout(format!(
+                let str = format!(
                     "Music {}",
                     if self.music_on { "on" } else { "off" }
-                ));
+                );
+                ui.checkbox_layout_label_left(CHECKBOX_SIZE, &mut self.music_on, str.to_string(), 1.0);
             });
 
             ui.layout(LayoutDirection::Horizontal, Some(10), false, |ui| {

@@ -299,6 +299,13 @@ impl Default for UIInputState {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+/// Data about what happened to draw a checkbox
+pub struct CheckboxResult { 
+    pub rect: Rect,
+    pub interacted: bool,
+}
+
 /// Transient draw context
 pub struct UIContext<'f> {
     state: UIState,
@@ -516,27 +523,30 @@ impl<'f> UIContext<'f> {
         self.text_raw(label, rect, flags::NONE, UIDrawRole::Text, scale);
     }
 
-    pub fn text_layout(&mut self, label: String) {
-        self.text_layout_scaled(label, 1.0);
+    pub fn text_layout(&mut self, label: String) -> Vec2 {
+        self.text_layout_scaled(label, 1.0)
     }
 
-    pub fn text_at(&mut self, label: String, position: Vec2) {
+    /// Returns the size of the text
+    pub fn text_at(&mut self, label: String, position: Vec2) -> Vec2 {
         let text_size = self.font_info.compute_text_size(&label, 1.0);
         self.text(label, Rect {
             size: text_size,
             top_left: position
-        })
+        });
+        text_size
     }
 
-    pub fn text_at_scaled(&mut self, label: String, position: Vec2, scale: f32) {
+    pub fn text_at_scaled(&mut self, label: String, position: Vec2, scale: f32) -> Vec2 {
         let text_size = self.font_info.compute_text_size(&label, scale);
         self.text(label, Rect {
             size: text_size,
             top_left: position
-        })
+        });
+        text_size
     }
 
-    pub fn text_layout_scaled(&mut self, label: String, scale: f32) {
+    pub fn text_layout_scaled(&mut self, label: String, scale: f32) -> Vec2 {
         let layout = self.get_current_layout();
         let text_size = self.font_info.compute_text_size(&label, scale);
         self.text_scaled(
@@ -548,6 +558,7 @@ impl<'f> UIContext<'f> {
             scale,
         );
         self.recompute_current_layout(text_size);
+        text_size
     }
 
     pub fn button(&mut self, top_left: Vec2, padding: Vec2, label: String) -> bool {
@@ -625,11 +636,30 @@ impl<'f> UIContext<'f> {
     }
 
     /// Draws a checkbox using the current layout position.
-    pub fn checkbox_layout(&mut self, size: Vec2, checked: &mut bool) -> bool {
-        let layout = self.get_current_layout();
-        let toggled = self.checkbox(layout.top_left, size, checked);
+    pub fn checkbox_layout(&mut self, size: Vec2, checked: &mut bool) -> CheckboxResult {
+        let top_left = self.get_current_layout().top_left;
+        let toggled = self.checkbox(top_left, size, checked);
         self.recompute_current_layout(size);
-        toggled
+        CheckboxResult {
+            interacted: toggled,
+            rect: Rect { top_left, size }
+        }
+    }
+
+    /// Draws a checkbox using the current layout, and `label` centered on the left.
+    pub fn checkbox_layout_label_left(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32) -> bool {
+        self.layout(LayoutDirection::Horizontal, None, false, |ui| {
+            let layout = *ui.get_current_layout();
+            // add half the size y to center the text
+            let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, size.y / 4));
+            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
+            ui.recompute_current_layout(text_size);
+
+            // now draw checkbox next to it
+
+            let interacted = ui.checkbox_layout(size, checked);
+            interacted.interacted
+        })
     }
 
     pub fn slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
