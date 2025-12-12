@@ -650,8 +650,9 @@ impl<'f> UIContext<'f> {
     pub fn checkbox_layout_label_left(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let layout = *ui.get_current_layout();
+            let text_size = ui.font_info.compute_text_size(&label, label_scale);
             // add half the size y to center the text
-            let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, size.y / 4));
+            let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2));
             let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
             ui.recompute_current_layout(text_size);
 
@@ -668,8 +669,9 @@ impl<'f> UIContext<'f> {
             let interacted = ui.checkbox_layout(size, checked);
 
             let layout = *ui.get_current_layout();
+            let text_size = ui.font_info.compute_text_size(&label, label_scale);
             // add half the size y to center the text
-            let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, size.y / 4));
+            let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2));
             let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
             ui.recompute_current_layout(text_size);
             
