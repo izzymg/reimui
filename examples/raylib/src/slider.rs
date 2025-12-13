@@ -34,12 +34,14 @@ impl SliderUI {
             ui.text_layout("sliders".into());
 
             let a_val = format!("{}", self.slider_a_state.value);
-            ui.slider_layout_label_right(
+            if ui.slider_layout_label_right(
                 BIG_SLIDER_SIZE,
                 &mut self.slider_a_state,
                 a_val,
                 1.0,
-            );
+            ) {
+                println!("slider moved!");
+            }
 
             let b_val = format!("{}", self.slider_b_state.value);
             ui.slider_layout_label_left(

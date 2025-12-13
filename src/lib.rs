@@ -28,6 +28,7 @@ pub trait SliderValue: Copy {
     fn decrement(value: Self, step: Self, min: Self, max: Self) -> Self;
     fn clamp_value(value: Self, min: Self, max: Self) -> Self;
     fn step_percentage(step: Self, min: Self, max: Self) -> f32;
+    fn equals(a: Self, b: Self) -> bool;
 }
 
 pub struct SliderState<T> {
@@ -678,12 +679,14 @@ impl<'f> UIContext<'f> {
             interacted.interacted
         })
     }
-
-    pub fn slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) {
+    /// Returns true if the slider value changed
+    pub fn slider<T: SliderValue>(&mut self, rect: Rect, state: &mut SliderState<T>) -> bool {
         let hovered = self.check_set_hover(rect);
         let is_active = self.is_active(rect);
         let focused = self.register_focusable(rect);
         let knob_size = Vec2::new(10, rect.size.y);
+
+        let val = state.value;
 
         // by how many pixels does each step of the slider correspond to
         let slider_span = rect.size.x.saturating_sub(knob_size.x);
@@ -730,6 +733,7 @@ impl<'f> UIContext<'f> {
             }
         }
         state.value = T::clamp_value(state.value, state.min, state.max);
+        let interacted = !SliderValue::equals(val, state.value);
         let value_percentage =
             T::percentage(state.value, state.min, state.max).clamp(0.0_f32, 1.0_f32);
         let mut flags = flags::NONE;
@@ -758,11 +762,12 @@ impl<'f> UIContext<'f> {
             flags,
             UIDrawRole::SliderKnob,
         );
+        interacted
     }
 
-    pub fn slider_layout<T: SliderValue>(&mut self, size: Vec2, state: &mut SliderState<T>) {
+    pub fn slider_layout<T: SliderValue>(&mut self, size: Vec2, state: &mut SliderState<T>) -> bool {
         let layout = self.get_current_layout();
-        self.slider(
+        let interacted = self.slider(
             Rect {
                 top_left: layout.top_left,
                 size,
@@ -770,6 +775,7 @@ impl<'f> UIContext<'f> {
             state,
         );
         self.recompute_current_layout(size);
+        interacted
     }
 
     /// Draws a slider using the current layout, and `label` centered on the left.
@@ -779,7 +785,7 @@ impl<'f> UIContext<'f> {
         state: &mut SliderState<T>,
         label: String,
         label_scale: f32,
-    ) {
+    ) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let layout = *ui.get_current_layout();
             let text_size = ui.font_info.compute_text_size(&label, label_scale);
@@ -792,8 +798,8 @@ impl<'f> UIContext<'f> {
             ui.recompute_current_layout(text_size);
 
             // now draw slider next to it
-            ui.slider_layout(size, state);
-        });
+            ui.slider_layout(size, state)
+        })
     }
 
     /// Draws a slider using the current layout, and `label` centered on the right.
@@ -803,9 +809,9 @@ impl<'f> UIContext<'f> {
         state: &mut SliderState<T>,
         label: String,
         label_scale: f32,
-    ) {
+    ) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
-            ui.slider_layout(size, state);
+            let interacted = ui.slider_layout(size, state);
 
             let layout = *ui.get_current_layout();
             let text_size = ui.font_info.compute_text_size(&label, label_scale);
@@ -816,7 +822,8 @@ impl<'f> UIContext<'f> {
             );
             let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
             ui.recompute_current_layout(text_size);
-        });
+            interacted
+        })
     }
 
     /// Runs `F` inside a layout, using the current layout.
@@ -1444,6 +1451,11 @@ macro_rules! slider_value_impl {
                         (step as f32).abs() / range
                     }
                 }
+
+                #[inline]
+                fn equals(a: Self, b: Self) -> bool {
+                    a == b
+                }
             }
         )*
     };
@@ -1488,6 +1500,10 @@ macro_rules! slider_value_impl_floating {
                     } else {
                         (step / range).abs() as f32
                     }
+                }
+                #[inline]
+                fn equals(a: Self, b: Self) -> bool {
+                    a == b
                 }
             }
         )*
