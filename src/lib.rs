@@ -772,6 +772,53 @@ impl<'f> UIContext<'f> {
         self.recompute_current_layout(size);
     }
 
+    /// Draws a slider using the current layout, and `label` centered on the left.
+    pub fn slider_layout_label_left<T: SliderValue>(
+        &mut self,
+        size: Vec2,
+        state: &mut SliderState<T>,
+        label: String,
+        label_scale: f32,
+    ) {
+        self.layout(LayoutDirection::Horizontal, None, false, |ui| {
+            let layout = *ui.get_current_layout();
+            let text_size = ui.font_info.compute_text_size(&label, label_scale);
+            // add half the size y to center the text
+            let label_top_left = Vec2::add(
+                layout.top_left,
+                Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2),
+            );
+            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
+            ui.recompute_current_layout(text_size);
+
+            // now draw slider next to it
+            ui.slider_layout(size, state);
+        });
+    }
+
+    /// Draws a slider using the current layout, and `label` centered on the right.
+    pub fn slider_layout_label_right<T: SliderValue>(
+        &mut self,
+        size: Vec2,
+        state: &mut SliderState<T>,
+        label: String,
+        label_scale: f32,
+    ) {
+        self.layout(LayoutDirection::Horizontal, None, false, |ui| {
+            ui.slider_layout(size, state);
+
+            let layout = *ui.get_current_layout();
+            let text_size = ui.font_info.compute_text_size(&label, label_scale);
+            // add half the size y to center the text
+            let label_top_left = Vec2::add(
+                layout.top_left,
+                Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2),
+            );
+            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
+            ui.recompute_current_layout(text_size);
+        });
+    }
+
     /// Runs `F` inside a layout, using the current layout.
     /// If `spacing` is `None` it will use the current layout spacing.
     pub fn layout<F, T>(

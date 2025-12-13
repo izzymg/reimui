@@ -33,21 +33,16 @@ impl CheckboxUI {
         ui.layout(LayoutDirection::Vertical, Some(SPACING), false, |ui| {
             ui.text_layout("Checkboxes".into());
 
-            ui.layout(LayoutDirection::Horizontal, Some(10), false, |ui| {
-                let str = format!(
-                    "Music {}",
-                    if self.music_on { "on" } else { "off" }
-                );
-                ui.checkbox_layout_label_left(CHECKBOX_SIZE, &mut self.music_on, str.to_string(), 1.0);
-            });
+            let str = format!("Music {}", if self.music_on { "on" } else { "off" });
+            ui.checkbox_layout_label_left(
+                Vec2::new(20, 20),
+                &mut self.music_on,
+                str.to_string(),
+                1.0,
+            );
 
-            ui.layout(LayoutDirection::Horizontal, Some(10), false, |ui| {
-                let str = format!(
-                    "SFX {}",
-                    if self.sfx_on { "on" } else { "off" }
-                );
-                ui.checkbox_layout_label_right(CHECKBOX_SIZE, &mut self.sfx_on, str.to_string(), 2.0);
-            });
+            let str = format!("SFX {}", if self.sfx_on { "on" } else { "off" });
+            ui.checkbox_layout_label_right(CHECKBOX_SIZE, &mut self.sfx_on, str.to_string(), 2.0);
         });
 
         let ui_result = ui.end();
