@@ -60,8 +60,16 @@ impl<T> SliderState<T> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ButtonState {
-    Down,
-    Up,
+    Down,     // Just pressed
+    Held,     // Held down
+    Released, // Just released
+    Up,       // Not pressed
+}
+
+impl ButtonState {
+    pub fn is_down(&self) -> bool {
+        matches!(self, ButtonState::Down | ButtonState::Held)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd)]
@@ -287,6 +295,11 @@ pub struct UIInputState {
 
     pub activate_button: ButtonState,
     pub focus_next_button: ButtonState,
+
+    pub move_left: ButtonState,
+    pub move_right: ButtonState,
+    pub move_up: ButtonState,
+    pub move_down: ButtonState,
 }
 
 impl Default for UIInputState {
@@ -296,6 +309,10 @@ impl Default for UIInputState {
             mouse_position: Vec2::zero(),
             activate_button: ButtonState::Up,
             focus_next_button: ButtonState::Up,
+            move_left: ButtonState::Up,
+            move_right: ButtonState::Up,
+            move_up: ButtonState::Up,
+            move_down: ButtonState::Up,
         }
     }
 }
@@ -504,7 +521,7 @@ impl<'f> UIContext<'f> {
     }
 
     fn clicked_rect(&self, rect: Rect) -> bool {
-        self.input_state.activate_button == ButtonState::Up && self.is_active(rect)
+        self.input_state.activate_button == ButtonState::Released && self.is_active(rect)
     }
 
     fn check_set_hover(&mut self, rect: Rect) -> bool {
@@ -744,6 +761,15 @@ impl<'f> UIContext<'f> {
             flags |= flags::FOCUSED;
         }
 
+        if focused {
+            if self.input_state.move_left == ButtonState::Down {
+                state.value = T::decrement(state.value, state.step, state.min, state.max);
+            }
+            if self.input_state.move_right == ButtonState::Down {
+                state.value = T::increment(state.value, state.step, state.min, state.max);
+            }
+        }
+
         // move the knob by the percentage it is into the slider rect
         let knob_top_left = Vec2::add(
             rect.top_left,
@@ -925,13 +951,15 @@ impl<'f> UIContext<'f> {
                 self.state.active_drag_amt = 0.0;
             }
             self.state.active_rect = target_rect;
+        } else if self.input_state.activate_button == ButtonState::Held {
+            // maintain active rect
         } else {
             self.state.active_rect = None;
             self.state.active_drag_amt = 0.0;
         }
 
         // figure out what the next thing to focus is
-        if self.input_state.focus_next_button == ButtonState::Down {
+        if self.input_state.focus_next_button == ButtonState::Released {
             // if we had something focused, we find the next one
             if let Some(prev_focus_rect) = self.state.focused {
                 let next_idx = self
@@ -990,6 +1018,7 @@ mod test {
             activate_button: ButtonState::Up,
             focus_next_button: ButtonState::Up,
             mouse_position: Vec2::zero(),
+            ..Default::default()
         };
 
         let font_info = mock_font_info();
@@ -1104,7 +1133,7 @@ mod test {
             result.new_state,
             &font_info,
             UIInputState {
-                activate_button: ButtonState::Up,
+                activate_button: ButtonState::Released,
                 ..Default::default()
             },
         );
@@ -1158,7 +1187,7 @@ mod test {
             UIState::new(),
             &font_info,
             UIInputState {
-                focus_next_button: ButtonState::Down,
+                focus_next_button: ButtonState::Released,
                 mouse_position: mouse_far,
                 ..Default::default()
             },
@@ -1188,7 +1217,7 @@ mod test {
             state,
             &font_info,
             UIInputState {
-                activate_button: ButtonState::Up,
+                activate_button: ButtonState::Released,
                 mouse_position: mouse_far,
                 ..Default::default()
             },
@@ -1209,7 +1238,7 @@ mod test {
             UIState::new(),
             &font_info,
             UIInputState {
-                focus_next_button: ButtonState::Down,
+                focus_next_button: ButtonState::Released,
                 ..Default::default()
             },
         );
@@ -1223,7 +1252,7 @@ mod test {
             result.new_state,
             &font_info,
             UIInputState {
-                focus_next_button: ButtonState::Down,
+                focus_next_button: ButtonState::Released,
                 ..Default::default()
             },
         );
@@ -1240,7 +1269,7 @@ mod test {
             result.new_state,
             &font_info,
             UIInputState {
-                focus_next_button: ButtonState::Down,
+                focus_next_button: ButtonState::Released,
                 ..Default::default()
             },
         );
@@ -1319,7 +1348,7 @@ mod test {
             &font_info,
             UIInputState {
                 mouse_position: Vec2 { x: 5, y: 6 },
-                activate_button: ButtonState::Up,
+                activate_button: ButtonState::Released,
                 ..Default::default()
             },
         );
@@ -1382,7 +1411,7 @@ mod test {
             &font_info,
             UIInputState {
                 mouse_position: Vec2 { x: 10, y: 10 },
-                activate_button: ButtonState::Up,
+                activate_button: ButtonState::Released,
                 ..Default::default()
             },
         );

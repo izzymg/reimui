@@ -169,10 +169,18 @@ pub fn raylib_input_state(
     ui_state: &reimui::UIState,
 ) -> reimui::UIInputState {
     let mouse = rl.get_mouse_position();
-    let activate_button = if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {
-        reimui::ButtonState::Down
-    } else {
-        reimui::ButtonState::Up
+    let get_mouse_state = |btn| {
+        if rl.is_mouse_button_pressed(btn) { reimui::ButtonState::Down }
+        else if rl.is_mouse_button_down(btn) { reimui::ButtonState::Held }
+        else if rl.is_mouse_button_released(btn) { reimui::ButtonState::Released }
+        else { reimui::ButtonState::Up }
+    };
+    
+    let get_key_state = |key| {
+        if rl.is_key_pressed(key) { reimui::ButtonState::Down }
+        else if rl.is_key_down(key) { reimui::ButtonState::Held }
+        else if rl.is_key_released(key) { reimui::ButtonState::Released }
+        else { reimui::ButtonState::Up }
     };
 
     let mut input = reimui::UIInputState {
@@ -180,19 +188,29 @@ pub fn raylib_input_state(
             x: mouse.x.max(0.0) as u32,
             y: mouse.y.max(0.0) as u32,
         },
-        activate_button,
-        focus_next_button: if rl.is_key_pressed(KeyboardKey::KEY_TAB) {
-            reimui::ButtonState::Down
-        } else {
-            reimui::ButtonState::Up
-        },
+        activate_button: get_mouse_state(MouseButton::MOUSE_BUTTON_LEFT),
+        focus_next_button: get_key_state(KeyboardKey::KEY_TAB),
+        move_left: get_key_state(KeyboardKey::KEY_LEFT),
+        move_right: get_key_state(KeyboardKey::KEY_RIGHT),
+        move_up: get_key_state(KeyboardKey::KEY_UP),
+        move_down: get_key_state(KeyboardKey::KEY_DOWN),
     };
 
     // Allow pressing enter to "click" the currently focused control.
-    if rl.is_key_pressed(KeyboardKey::KEY_ENTER) || rl.is_key_pressed(KeyboardKey::KEY_KP_ENTER) {
+    let enter_state = if rl.is_key_pressed(KeyboardKey::KEY_ENTER) || rl.is_key_pressed(KeyboardKey::KEY_KP_ENTER) {
+        reimui::ButtonState::Down
+    } else if rl.is_key_down(KeyboardKey::KEY_ENTER) || rl.is_key_down(KeyboardKey::KEY_KP_ENTER) {
+        reimui::ButtonState::Held
+    } else if rl.is_key_released(KeyboardKey::KEY_ENTER) || rl.is_key_released(KeyboardKey::KEY_KP_ENTER) {
+        reimui::ButtonState::Released
+    } else {
+        reimui::ButtonState::Up
+    };
+
+    if enter_state != reimui::ButtonState::Up {
         if let Some(focused_rect) = ui_state.focused_rect() {
             input.mouse_position = focused_rect.top_left;
-            input.activate_button = reimui::ButtonState::Down;
+            input.activate_button = enter_state;
         }
     }
 
