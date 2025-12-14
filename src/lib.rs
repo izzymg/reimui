@@ -665,14 +665,17 @@ impl<'f> UIContext<'f> {
     }
 
     /// Draws a checkbox using the current layout, and `label` centered on the left.
-    pub fn checkbox_layout_label_left(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32) -> bool {
+    /// `label_width` is required to ensure the layout remains stable even if the text width changes.
+    pub fn checkbox_layout_label_left(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32, label_width: u32) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let layout = *ui.get_current_layout();
             let text_size = ui.font_info.compute_text_size(&label, label_scale);
             // add half the size y to center the text
             let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2));
-            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
-            ui.recompute_current_layout(text_size);
+            ui.text_at_scaled(label, label_top_left, label_scale);
+            
+            // Use fixed width for layout advancement
+            ui.recompute_current_layout(Vec2::new(label_width, text_size.y));
 
             // now draw checkbox next to it
 
@@ -682,7 +685,8 @@ impl<'f> UIContext<'f> {
     }
 
     /// Draws a checkbox using the current layout, and `label` centered on the right.
-    pub fn checkbox_layout_label_right(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32) -> bool {
+    /// `label_width` is required to ensure the layout remains stable even if the text width changes.
+    pub fn checkbox_layout_label_right(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32, label_width: u32) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let interacted = ui.checkbox_layout(size, checked);
 
@@ -690,8 +694,10 @@ impl<'f> UIContext<'f> {
             let text_size = ui.font_info.compute_text_size(&label, label_scale);
             // add half the size y to center the text
             let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2));
-            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
-            ui.recompute_current_layout(text_size);
+            ui.text_at_scaled(label, label_top_left, label_scale);
+            
+            // Use fixed width
+            ui.recompute_current_layout(Vec2::new(label_width, text_size.y));
             
             interacted.interacted
         })
@@ -805,12 +811,14 @@ impl<'f> UIContext<'f> {
     }
 
     /// Draws a slider using the current layout, and `label` centered on the left.
+    /// `label_width` is required to ensure the layout remains stable even if the text width changes.
     pub fn slider_layout_label_left<T: SliderValue>(
         &mut self,
         size: Vec2,
         state: &mut SliderState<T>,
         label: String,
         label_scale: f32,
+        label_width: u32,
     ) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let layout = *ui.get_current_layout();
@@ -820,8 +828,10 @@ impl<'f> UIContext<'f> {
                 layout.top_left,
                 Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2),
             );
-            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
-            ui.recompute_current_layout(text_size);
+            ui.text_at_scaled(label, label_top_left, label_scale);
+            
+            // Use fixed width
+            ui.recompute_current_layout(Vec2::new(label_width, text_size.y));
 
             // now draw slider next to it
             ui.slider_layout(size, state)
@@ -829,12 +839,14 @@ impl<'f> UIContext<'f> {
     }
 
     /// Draws a slider using the current layout, and `label` centered on the right.
+    /// `label_width` is required to ensure the layout remains stable even if the text width changes.
     pub fn slider_layout_label_right<T: SliderValue>(
         &mut self,
         size: Vec2,
         state: &mut SliderState<T>,
         label: String,
         label_scale: f32,
+        label_width: u32,
     ) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let interacted = ui.slider_layout(size, state);
@@ -846,8 +858,10 @@ impl<'f> UIContext<'f> {
                 layout.top_left,
                 Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2),
             );
-            let text_size = ui.text_at_scaled(label, label_top_left, label_scale);
-            ui.recompute_current_layout(text_size);
+            ui.text_at_scaled(label, label_top_left, label_scale);
+            
+            // Use fixed width
+            ui.recompute_current_layout(Vec2::new(label_width, text_size.y));
             interacted
         })
     }

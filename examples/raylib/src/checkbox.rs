@@ -39,10 +39,11 @@ impl CheckboxUI {
                 &mut self.music_on,
                 str.to_string(),
                 1.0,
+                100,
             );
 
             let str = format!("SFX {}", if self.sfx_on { "on" } else { "off" });
-            ui.checkbox_layout_label_right(CHECKBOX_SIZE, &mut self.sfx_on, str.to_string(), 2.0);
+            ui.checkbox_layout_label_right(CHECKBOX_SIZE, &mut self.sfx_on, str.to_string(), 2.0, 100);
         });
 
         let ui_result = ui.end();

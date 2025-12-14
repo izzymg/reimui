@@ -39,16 +39,24 @@ impl SliderUI {
                 &mut self.slider_a_state,
                 a_val,
                 1.0,
+                50,
             ) {
                 println!("slider moved!");
             }
 
-            let b_val = format!("{}", self.slider_b_state.value);
+            // Note that we pad the float value here to ensure the text size is consistent.
+            // If we didn't, the slider would shift as the number of digits changed.
+            // The format specifier here ensures 1 decimal place and a width of 4 characters.
+            // We pad the value for visual consistency, but we also use a fixed label width.
+            // Variable width fonts mean that even padded strings can change width, shifting the slider.
+            // Since focus relies on a stable Rect, shifting causes focus loss.
+            let b_val = format!("{:4.1}", self.slider_b_state.value);
             ui.slider_layout_label_left(
                 SMALL_SLIDER_SIZE,
                 &mut self.slider_b_state,
                 b_val,
                 1.0,
+                50,
             );
         });
 
