@@ -21,34 +21,38 @@ impl SimpleUI {
         }
     }
 
-    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        let input_state = raylib_input_state(rl, &self.ui_state);
-        let pos = Vec2::new(364, 298);
-        let pos_label = format!("I'm at {}, {}", pos.x, pos.y);
-        let button_label = format!("Click me {}", self.clicked);
-
+    /// Build reimui UI frame
+    fn do_reimui(&mut self, input_state: reimui::UIInputState) -> reimui::UIResult {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, input_state);
 
         // put some text somewhere specific
-        ui.text_at_scaled(&pos_label, pos, 1.5);
+        let pos = Vec2::new(364, 298);
+        ui.text_at_scaled(format!("I'm at {}, {}", pos.x, pos.y), pos, 1.5);
 
         // build a simple vertical layout
-        let clicked = ui.layout(LayoutDirection::Vertical, Some(25), false, |ui| {
-            ui.text_layout_scaled("reimui + raylib", 5.0);
-            ui.text_layout("Immediate mode UI rendering to raylib");
-            ui.button_layout(BUTTON_PADDING, &button_label)
+        ui.layout(LayoutDirection::Vertical, Some(25), false, |ui| {
+            ui.text_layout_scaled("reimui + raylib".into(), 5.0);
+            ui.text_layout("Immediate mode UI rendering to raylib".into());
+            let clicked = ui.button_layout(BUTTON_PADDING, format!("Click me {}", self.clicked));
+
+            if clicked {
+                self.clicked += 1;
+            }
         });
-
-        if clicked {
-            self.clicked += 1;
-        }
-
+        // reassign the state and push the result back for raylib binding
         let ui_result = ui.end();
+        self.ui_state = ui_result.new_state;
+
+        ui_result
+    }
+
+    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
+        let input_state = raylib_input_state(rl, &self.ui_state);
+        let ui_result = self.do_reimui(input_state);
 
         let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
         apply_reimui_to_raylib(&ui_result, &mut d, &self.font_info);
-        self.ui_state = ui_result.new_state;
     }
 }
 

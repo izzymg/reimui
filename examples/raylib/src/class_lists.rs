@@ -22,45 +22,50 @@ impl ClassListUI {
         }
     }
 
-    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        let input_state = raylib_input_state(rl, &self.ui_state);
-        let danger_clicks_label = format!("Danger clicks: {}", self.danger_clicks);
-
+    /// Build reimui UI frame
+    fn do_reimui(&mut self, input_state: reimui::UIInputState) -> reimui::UIResult {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, input_state);
 
         // The "panel" class colors the layout background in the renderer.
         ui.with_class_list(ClassList::new("panel"), |ui| {
             ui.layout(LayoutDirection::Vertical, Some(18), true, |ui| {
-                ui.text_layout("Class list styling");
+                ui.text_layout("Class list styling".into());
 
                 ui.with_class_list(ClassList::new("muted"), |ui| {
-                    ui.text_layout("Tagged with 'muted' class.");
+                    ui.text_layout("Tagged with 'muted' class.".into());
                 });
 
                 ui.layout(LayoutDirection::Horizontal, Some(12), false, |ui| {
                     ui.with_class_list(ClassList::new("danger"), |ui| {
-                        if ui.button_layout(BUTTON_PADDING, "Danger action") {
+                        if ui.button_layout(BUTTON_PADDING, "Danger action".into()) {
                             self.danger_clicks += 1;
                         }
                     });
 
                     ui.with_class_list(ClassList::new("accent"), |ui| {
-                        ui.text_layout(&danger_clicks_label);
+                        ui.text_layout(format!("Danger clicks: {}", self.danger_clicks));
                     });
                 });
 
                 ui.with_class_list(ClassList::new("accent"), |ui| {
-                    ui.button_layout(BUTTON_PADDING, "Accent action");
+                    ui.button_layout(BUTTON_PADDING, "Accent action".into());
                 });
             });
         });
 
         let ui_result = ui.end();
+        self.ui_state = ui_result.new_state;
+
+        ui_result
+    }
+
+    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
+        let input_state = raylib_input_state(rl, &self.ui_state);
+        let ui_result = self.do_reimui(input_state);
 
         let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
         apply_reimui_to_raylib(&ui_result, &mut d, &self.font_info);
-        self.ui_state = ui_result.new_state;
     }
 }
 

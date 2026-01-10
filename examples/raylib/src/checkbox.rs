@@ -26,39 +26,38 @@ impl CheckboxUI {
         }
     }
 
-    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        let input_state = raylib_input_state(rl, &self.ui_state);
-        let music_label = if self.music_on { "Music on" } else { "Music off" };
-        let sfx_label = if self.sfx_on { "SFX on" } else { "SFX off" };
-
+    /// Build reimui UI frame
+    fn do_reimui(&mut self, input_state: reimui::UIInputState) -> reimui::UIResult {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, input_state);
 
         ui.layout(LayoutDirection::Vertical, Some(SPACING), false, |ui| {
-            ui.text_layout("Checkboxes");
+            ui.text_layout("Checkboxes".into());
 
+            let str = format!("Music {}", if self.music_on { "on" } else { "off" });
             ui.checkbox_layout_label_left(
                 Vec2::new(20, 20),
                 &mut self.music_on,
-                music_label,
+                str.to_string(),
                 1.0,
                 100,
             );
 
-            ui.checkbox_layout_label_right(
-                CHECKBOX_SIZE,
-                &mut self.sfx_on,
-                sfx_label,
-                2.0,
-                100,
-            );
+            let str = format!("SFX {}", if self.sfx_on { "on" } else { "off" });
+            ui.checkbox_layout_label_right(CHECKBOX_SIZE, &mut self.sfx_on, str.to_string(), 2.0, 100);
         });
 
         let ui_result = ui.end();
+        self.ui_state = ui_result.new_state;
+        ui_result
+    }
+
+    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
+        let input_state = raylib_input_state(rl, &self.ui_state);
+        let ui_result = self.do_reimui(input_state);
 
         let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
         apply_reimui_to_raylib(&ui_result, &mut d, &self.font_info);
-        self.ui_state = ui_result.new_state;
     }
 }
 
