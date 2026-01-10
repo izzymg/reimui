@@ -130,7 +130,7 @@ pub fn color_palette(
 
 /// Applies the result of a reimui draw to raylib
 pub fn apply_reimui_to_raylib(
-    ui_result: &reimui::UIResult,
+    ui_result: &reimui::UIResult<'_>,
     d: &mut RaylibDrawHandle,
     font_info: &RaylibFontInfo,
 ) {

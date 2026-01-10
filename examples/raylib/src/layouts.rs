@@ -22,12 +22,15 @@ impl LayoutsUI {
         }
     }
 
-    /// Build reimui UI frame
-    fn do_reimui(&mut self, input_state: reimui::UIInputState) -> reimui::UIResult {
+    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
+        let input_state = raylib_input_state(rl, &self.ui_state);
+        let item_texts: Vec<String> = (0..5).map(|i| format!("* Item {}", i)).collect();
+        let button_texts: Vec<String> = (0..5).map(|i| format!("Item {} button", i)).collect();
+
         let mut ui = UIContext::new(self.ui_state, &self.font_info, input_state);
 
         // main layout - horizontal
-        ui.layout(
+        let toggled = ui.layout(
             LayoutDirection::Horizontal,
             Some(SPACING),
             self.show_layouts,
@@ -38,7 +41,7 @@ impl LayoutsUI {
                     Some(SPACING),
                     self.show_layouts,
                     |ui| {
-                        ui.text_layout("Layouts - simple list".into());
+                        ui.text_layout("Layouts - simple list");
 
                         for i in 0..5 {
                             ui.layout(
@@ -46,10 +49,8 @@ impl LayoutsUI {
                                 Some(SPACING),
                                 self.show_layouts,
                                 |ui| {
-                                    let text = format!("* Item {}", i);
-                                    let btn_text = format!("Item {} button", i);
-                                    ui.text_layout(text);
-                                    ui.button_layout(BUTTON_PADDING, btn_text);
+                                    ui.text_layout(item_texts[i].as_str());
+                                    ui.button_layout(BUTTON_PADDING, button_texts[i].as_str());
                                 },
                             );
                         }
@@ -62,31 +63,22 @@ impl LayoutsUI {
                     Some(SPACING),
                     self.show_layouts,
                     |ui| {
-                        if ui.button_layout(
-                            BUTTON_PADDING,
-                            "Toggle layouts".into()
-                        ) {
-                            self.show_layouts = !self.show_layouts;
-                        }
+                        ui.button_layout(BUTTON_PADDING, "Toggle layouts")
                     },
-                );
+                )
             },
         );
 
-        // reassign the state and push the result back for raylib binding
+        if toggled {
+            self.show_layouts = !self.show_layouts;
+        }
+
         let ui_result = ui.end();
-        self.ui_state = ui_result.new_state;
-
-        ui_result
-    }
-
-    pub fn draw(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread) {
-        let input_state = raylib_input_state(rl, &self.ui_state);
-        let ui_result = self.do_reimui(input_state);
 
         let mut d = rl.begin_drawing(thread);
         d.clear_background(Color::RAYWHITE);
         apply_reimui_to_raylib(&ui_result, &mut d, &self.font_info);
+        self.ui_state = ui_result.new_state;
     }
 }
 

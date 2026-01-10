@@ -22,7 +22,7 @@ A render agnostic, immediate-mode GUI lib written in Rust.
 use reimui::prelude::*;
 
 /// Bind reimui draw primitives to your render backend
-fn reimui_ui_to_renderer(result: &reimui::UIResult) {
+fn reimui_ui_to_renderer(result: &reimui::UIResult<'_>) {
     todo!("bind reimui to your render engine");
 }
 
@@ -43,14 +43,15 @@ fn draw() {
         let mut ui = UIContext::new(self.ui_state, &self.font_info, mouse_position, mouse_state);
         // build a vertical layout
         ui.layout(LayoutDirection::Vertical, Some(25), false, |ui| {
-            ui.text_layout("hi from reimui!".into());
-            ui.text_layout_scaled("big text".into(), 1.5);
+            ui.text_layout("hi from reimui!");
+            ui.text_layout_scaled("big text", 1.5);
 
             // make a new horizontal layout for the slider and value text
             ui.layout(LayoutDirection::Horizontal, Some(30), false, |ui| {
                 // draw our sliders
                 ui.slider_layout(BIG_SLIDER_SIZE, &mut self.slider_a_state);
-                ui.text_layout_scaled(format!("{}", self.slider_a_state.value), 0.8);
+                let slider_value = format!("{}", self.slider_a_state.value);
+                ui.text_layout_scaled(&slider_value, 0.8);
             });
         });
         let result = ui.end();

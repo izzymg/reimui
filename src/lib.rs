@@ -145,9 +145,9 @@ pub struct DrawData {
 
 /// The output of a reimui ui run
 #[derive(Debug, Clone)]
-pub enum DrawCommand {
+pub enum DrawCommand<'a> {
     DrawText {
-        content: String,
+        content: &'a str,
         text_scale: f32,
         draw_data: DrawData,
     },
@@ -283,9 +283,9 @@ impl UIState {
 }
 
 /// Result of a computation of the UI
-pub struct UIResult {
+pub struct UIResult<'a> {
     pub new_state: UIState,
-    pub commands: Vec<DrawCommand>,
+    pub commands: Vec<DrawCommand<'a>>,
 }
 
 /// Tell reimui what's going on with your user's physical inputs
@@ -325,14 +325,14 @@ pub struct CheckboxResult {
 }
 
 /// Transient draw context
-pub struct UIContext<'f> {
+pub struct UIContext<'f, 'a> {
     state: UIState,
     font_info: &'f dyn FontInformation,
     input_state: UIInputState,
 
     hover_rect: Option<Rect>,
 
-    command_buffer: VecDeque<DrawCommand>,
+    command_buffer: VecDeque<DrawCommand<'a>>,
 
     layout_stack: Vec<Layout>,
 
@@ -341,7 +341,7 @@ pub struct UIContext<'f> {
     focusables: Vec<Rect>,
 }
 
-impl<'f> UIContext<'f> {
+impl<'f, 'a> UIContext<'f, 'a> {
     pub fn new(
         state: UIState,
         font_info: &'f dyn FontInformation,
@@ -449,7 +449,7 @@ impl<'f> UIContext<'f> {
 
     pub fn text_raw(
         &mut self,
-        label: String,
+        label: &'a str,
         rect: Rect,
         flags: Flags,
         role: UIDrawRole,
@@ -472,7 +472,7 @@ impl<'f> UIContext<'f> {
         top_left: Vec2,
         text_size: Vec2,
         padding: Vec2,
-        label: String,
+        label: &'a str,
         text_scale: f32,
     ) -> bool {
         let button_size = Vec2::add(text_size, padding);
@@ -533,21 +533,21 @@ impl<'f> UIContext<'f> {
         is_hover
     }
 
-    pub fn text(&mut self, label: String, rect: Rect) {
+    pub fn text(&mut self, label: &'a str, rect: Rect) {
         self.text_scaled(label, rect, 1.0);
     }
 
-    pub fn text_scaled(&mut self, label: String, rect: Rect, scale: f32) {
+    pub fn text_scaled(&mut self, label: &'a str, rect: Rect, scale: f32) {
         self.text_raw(label, rect, flags::NONE, UIDrawRole::Text, scale);
     }
 
-    pub fn text_layout(&mut self, label: String) -> Vec2 {
+    pub fn text_layout(&mut self, label: &'a str) -> Vec2 {
         self.text_layout_scaled(label, 1.0)
     }
 
     /// Returns the size of the text
-    pub fn text_at(&mut self, label: String, position: Vec2) -> Vec2 {
-        let text_size = self.font_info.compute_text_size(&label, 1.0);
+    pub fn text_at(&mut self, label: &'a str, position: Vec2) -> Vec2 {
+        let text_size = self.font_info.compute_text_size(label, 1.0);
         self.text(label, Rect {
             size: text_size,
             top_left: position
@@ -555,8 +555,8 @@ impl<'f> UIContext<'f> {
         text_size
     }
 
-    pub fn text_at_scaled(&mut self, label: String, position: Vec2, scale: f32) -> Vec2 {
-        let text_size = self.font_info.compute_text_size(&label, scale);
+    pub fn text_at_scaled(&mut self, label: &'a str, position: Vec2, scale: f32) -> Vec2 {
+        let text_size = self.font_info.compute_text_size(label, scale);
         self.text_scaled(label, Rect {
             size: text_size,
             top_left: position
@@ -564,9 +564,9 @@ impl<'f> UIContext<'f> {
         text_size
     }
 
-    pub fn text_layout_scaled(&mut self, label: String, scale: f32) -> Vec2 {
+    pub fn text_layout_scaled(&mut self, label: &'a str, scale: f32) -> Vec2 {
         let layout = self.get_current_layout();
-        let text_size = self.font_info.compute_text_size(&label, scale);
+        let text_size = self.font_info.compute_text_size(label, scale);
         self.text_scaled(
             label,
             Rect {
@@ -579,7 +579,7 @@ impl<'f> UIContext<'f> {
         text_size
     }
 
-    pub fn button(&mut self, top_left: Vec2, padding: Vec2, label: String) -> bool {
+    pub fn button(&mut self, top_left: Vec2, padding: Vec2, label: &'a str) -> bool {
         self.button_scaled(top_left, padding, label, 1.0)
     }
 
@@ -587,20 +587,20 @@ impl<'f> UIContext<'f> {
         &mut self,
         top_left: Vec2,
         padding: Vec2,
-        label: String,
+        label: &'a str,
         scale: f32,
     ) -> bool {
-        let text_size = self.font_info.compute_text_size(&label, scale);
+        let text_size = self.font_info.compute_text_size(label, scale);
         self.button_raw(top_left, text_size, padding, label, scale)
     }
 
-    pub fn button_layout(&mut self, padding: Vec2, label: String) -> bool {
+    pub fn button_layout(&mut self, padding: Vec2, label: &'a str) -> bool {
         self.button_layout_scaled(padding, label, 1.0)
     }
 
-    pub fn button_layout_scaled(&mut self, padding: Vec2, label: String, scale: f32) -> bool {
+    pub fn button_layout_scaled(&mut self, padding: Vec2, label: &'a str, scale: f32) -> bool {
         let layout = self.get_current_layout();
-        let text_size = self.font_info.compute_text_size(&label, scale);
+        let text_size = self.font_info.compute_text_size(label, scale);
         let clicked = self.button_raw(layout.top_left, text_size, padding, label, scale);
         self.recompute_current_layout(Vec2::add(text_size, padding));
         clicked
@@ -666,10 +666,10 @@ impl<'f> UIContext<'f> {
 
     /// Draws a checkbox using the current layout, and `label` centered on the left.
     /// `label_width` is required to ensure the layout remains stable even if the text width changes.
-    pub fn checkbox_layout_label_left(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32, label_width: u32) -> bool {
+    pub fn checkbox_layout_label_left(&mut self, size: Vec2, checked: &mut bool, label: &'a str, label_scale: f32, label_width: u32) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let layout = *ui.get_current_layout();
-            let text_size = ui.font_info.compute_text_size(&label, label_scale);
+            let text_size = ui.font_info.compute_text_size(label, label_scale);
             // add half the size y to center the text
             let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2));
             ui.text_at_scaled(label, label_top_left, label_scale);
@@ -686,12 +686,12 @@ impl<'f> UIContext<'f> {
 
     /// Draws a checkbox using the current layout, and `label` centered on the right.
     /// `label_width` is required to ensure the layout remains stable even if the text width changes.
-    pub fn checkbox_layout_label_right(&mut self, size: Vec2, checked: &mut bool, label: String, label_scale: f32, label_width: u32) -> bool {
+    pub fn checkbox_layout_label_right(&mut self, size: Vec2, checked: &mut bool, label: &'a str, label_scale: f32, label_width: u32) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let interacted = ui.checkbox_layout(size, checked);
 
             let layout = *ui.get_current_layout();
-            let text_size = ui.font_info.compute_text_size(&label, label_scale);
+            let text_size = ui.font_info.compute_text_size(label, label_scale);
             // add half the size y to center the text
             let label_top_left = Vec2::add(layout.top_left, Vec2::new(0, (size.y.saturating_sub(text_size.y)) / 2));
             ui.text_at_scaled(label, label_top_left, label_scale);
@@ -816,13 +816,13 @@ impl<'f> UIContext<'f> {
         &mut self,
         size: Vec2,
         state: &mut SliderState<T>,
-        label: String,
+        label: &'a str,
         label_scale: f32,
         label_width: u32,
     ) -> bool {
         self.layout(LayoutDirection::Horizontal, None, false, |ui| {
             let layout = *ui.get_current_layout();
-            let text_size = ui.font_info.compute_text_size(&label, label_scale);
+            let text_size = ui.font_info.compute_text_size(label, label_scale);
             // add half the size y to center the text
             let label_top_left = Vec2::add(
                 layout.top_left,
@@ -844,7 +844,7 @@ impl<'f> UIContext<'f> {
         &mut self,
         size: Vec2,
         state: &mut SliderState<T>,
-        label: String,
+        label: &'a str,
         label_scale: f32,
         label_width: u32,
     ) -> bool {
@@ -852,7 +852,7 @@ impl<'f> UIContext<'f> {
             let interacted = ui.slider_layout(size, state);
 
             let layout = *ui.get_current_layout();
-            let text_size = ui.font_info.compute_text_size(&label, label_scale);
+            let text_size = ui.font_info.compute_text_size(label, label_scale);
             // add half the size y to center the text
             let label_top_left = Vec2::add(
                 layout.top_left,
@@ -957,7 +957,7 @@ impl<'f> UIContext<'f> {
     }
 
     /// Finalize the computation of the UI and return the resulting state and draw info
-    pub fn end(mut self) -> UIResult {
+    pub fn end(mut self) -> UIResult<'a> {
         // mouse/key down over hover/focus => active
         if self.input_state.activate_button == ButtonState::Down {
             let target_rect = self.hover_rect.or(self.state.focused);
@@ -1037,12 +1037,16 @@ mod test {
 
         let font_info = mock_font_info();
         let ui_state = UIState::new();
+        let section_labels: Vec<String> = (0..3).map(|i| format!("Section {}", i)).collect();
+        let sub_labels: Vec<Vec<String>> = (0..3)
+            .map(|i| (0..2).map(|j| format!("Section {} item {}", i, j)).collect())
+            .collect();
         let mut ctx = super::UIContext::new(ui_state, &font_info, input_state);
         // draw a horizontal group of texts, each with a vertical layout of text inside
         ctx.layout(LayoutDirection::Horizontal, Some(4), false, |ctx| {
             let main_layout = *ctx.get_current_layout();
             for i in 0..3 {
-                let label = format!("Section {}", i);
+                let label = section_labels[i].as_str();
                 assert!(
                     label.len() as u32 == SECTION_TEXT_LEN,
                     "broken test assertion"
@@ -1051,7 +1055,7 @@ mod test {
                 ctx.text_layout(label);
 
                 for j in 0..2 {
-                    let sub_label = format!("Section {} item {}", i, j);
+                    let sub_label = sub_labels[i][j].as_str();
 
                     ctx.layout(LayoutDirection::Vertical, Some(2), false, |ctx| {
                         ctx.text_layout(sub_label);
@@ -1080,8 +1084,8 @@ mod test {
         ctx.layout(LayoutDirection::Horizontal, Some(4), false, |ctx| {
             let parent_before = *ctx.get_current_layout();
             let child_layout = ctx.layout(LayoutDirection::Vertical, Some(3), false, |ctx| {
-                ctx.text_layout("Hi".into());
-                ctx.text_layout("WiderText".into());
+                ctx.text_layout("Hi");
+                ctx.text_layout("WiderText");
                 *ctx.get_current_layout()
             });
             assert_eq!(child_layout.size.x, MOCK_TEXT_WIDTH * 9);
@@ -1105,7 +1109,7 @@ mod test {
 
         let layout_pos = Vec2 { x: 20, y: 30 };
         ctx.layout_at(layout_pos, LayoutDirection::Vertical, 2, true, |ctx| {
-            ctx.text_layout("abc".into())
+            ctx.text_layout("abc")
         });
 
         assert_eq!(ctx.command_buffer.len(), 2);
@@ -1138,7 +1142,7 @@ mod test {
                 ..Default::default()
             },
         );
-        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me");
         assert!(!clicked, "button should not register click on mouse down");
         let result = ctx.end();
 
@@ -1151,7 +1155,7 @@ mod test {
                 ..Default::default()
             },
         );
-        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me");
         assert!(clicked, "button should register click on mouse up");
     }
 
@@ -1168,7 +1172,7 @@ mod test {
 
         // first frame: mouse down outside button
         let mut ctx = super::UIContext::new(ui_state, &font_info, input_state);
-        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me");
         assert!(
             !clicked,
             "button should not register click on mouse down outside"
@@ -1182,7 +1186,7 @@ mod test {
 
         // second frame: mouse up outside button
         let mut ctx = super::UIContext::new(result.new_state, &font_info, input_state);
-        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me".into());
+        let clicked = ctx.button(Vec2 { x: 0, y: 0 }, Vec2 { x: 8, y: 4 }, "Click me");
         assert!(
             !clicked,
             "button should not register click on mouse up outside"
@@ -1206,7 +1210,7 @@ mod test {
                 ..Default::default()
             },
         );
-        ctx.button(button_pos, button_padding, "A".into());
+        ctx.button(button_pos, button_padding, "A");
         let result = ctx.end();
 
         // key down should mark it active but not click yet
@@ -1219,7 +1223,7 @@ mod test {
                 ..Default::default()
             },
         );
-        let clicked = ctx.button(button_pos, button_padding, "A".into());
+        let clicked = ctx.button(button_pos, button_padding, "A");
         assert!(
             !clicked,
             "activate key down alone should not register a click"
@@ -1236,7 +1240,7 @@ mod test {
                 ..Default::default()
             },
         );
-        let clicked = ctx.button(button_pos, button_padding, "A".into());
+        let clicked = ctx.button(button_pos, button_padding, "A");
         assert!(clicked, "activate key up should click the focused button");
     }
 
@@ -1256,8 +1260,8 @@ mod test {
                 ..Default::default()
             },
         );
-        ctx.button(first_button_pos, button_padding, "A".into());
-        ctx.button(second_button_pos, button_padding, "B".into());
+        ctx.button(first_button_pos, button_padding, "A");
+        ctx.button(second_button_pos, button_padding, "B");
         let result = ctx.end();
         assert_eq!(result.new_state.focused.unwrap().top_left, first_button_pos);
 
@@ -1270,8 +1274,8 @@ mod test {
                 ..Default::default()
             },
         );
-        ctx.button(first_button_pos, button_padding, "A".into());
-        ctx.button(second_button_pos, button_padding, "B".into());
+        ctx.button(first_button_pos, button_padding, "A");
+        ctx.button(second_button_pos, button_padding, "B");
         let result = ctx.end();
         assert_eq!(
             result.new_state.focused.unwrap().top_left,
@@ -1287,8 +1291,8 @@ mod test {
                 ..Default::default()
             },
         );
-        ctx.button(first_button_pos, button_padding, "A".into());
-        ctx.button(second_button_pos, button_padding, "B".into());
+        ctx.button(first_button_pos, button_padding, "A");
+        ctx.button(second_button_pos, button_padding, "B");
         let result = ctx.end();
         assert_eq!(result.new_state.focused.unwrap().top_left, first_button_pos);
     }
