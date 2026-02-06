@@ -58,6 +58,20 @@ impl<T> SliderState<T> {
     }
 }
 
+impl<T> std::fmt::Debug for SliderState<T>
+where
+    T: std::fmt::Debug, 
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SliderState")
+            .field("value", &self.value)
+            .field("max", &self.max)
+            .field("min", &self.min)
+            .field("step", &self.step)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ButtonState {
     Down,     // Just pressed
