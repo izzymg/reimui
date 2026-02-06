@@ -252,7 +252,7 @@ impl PartialEq for ClassList {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 /// Persistent UI state object
 pub struct UIState {
     active_rect: Option<Rect>,
